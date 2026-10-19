@@ -15,6 +15,7 @@ export type ScryfallCard = {
   color_identity?: string[]
   rarity?: string
   oracle_text?: string
+  prices?: { usd: string | null; usd_foil: string | null; eur: string | null; eur_foil: string | null }
   image_uris?: Record<string, string>
   card_faces?: Array<{
     name: string

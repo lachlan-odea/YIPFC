@@ -1,8 +1,13 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { usePool } from '../lib/store'
 import type { PoolCard } from '../lib/types'
 import { Icons, Pips } from '../components/ui'
 import CardDetail from '../components/CardDetail'
+import { audRate, formatAud, usdPrices, type Price } from '../lib/prices'
+
+const PRICES_KEY = 'yipfc/show-prices'
+
+type Pricing = { rate: number; date: string; prices: Record<string, Price | null> }
 
 const COLORS = ['W', 'U', 'B', 'R', 'G'] as const
 
@@ -13,6 +18,30 @@ export default function PoolScreen() {
   const [onlyAvailable, setOnlyAvailable] = useState(false)
   const [colors, setColors] = useState<string[]>([])
   const [open, setOpen] = useState<PoolCard | null>(null)
+  const [showPrices, setShowPrices] = useState(() => localStorage.getItem(PRICES_KEY) === '1')
+  const [pricing, setPricing] = useState<Pricing | null>(null)
+  const [priceError, setPriceError] = useState<string | null>(null)
+
+  // Fetch today's rate and any prices we do not have yet whenever prices are shown.
+  const idKey = pool.cards.map((c) => c.scryfall_id).sort().join(',')
+  useEffect(() => {
+    localStorage.setItem(PRICES_KEY, showPrices ? '1' : '0')
+    if (!showPrices || !idKey) return
+    let cancelled = false
+    setPriceError(null)
+    Promise.all([audRate(), usdPrices(idKey.split(','))])
+      .then(([r, prices]) => !cancelled && setPricing({ rate: r.rate, date: r.date, prices }))
+      .catch((e) => !cancelled && setPriceError(e instanceof Error ? e.message : String(e)))
+    return () => {
+      cancelled = true
+    }
+  }, [showPrices, idKey])
+
+  const audFor = (c: PoolCard): number | null => {
+    if (!showPrices || !pricing) return null
+    const p = pricing.prices[c.scryfall_id]
+    return p ? p.usd * pricing.rate : null
+  }
 
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase()
@@ -88,6 +117,21 @@ export default function PoolScreen() {
         )}
       </div>
 
+      <div className="row between wrap" style={{ marginTop: 10, gap: 8 }}>
+        <label className="check">
+          <input type="checkbox" checked={showPrices} onChange={(e) => setShowPrices(e.target.checked)} />
+          Show value in AUD
+        </label>
+        {showPrices && pricing && filtered.length > 0 && (
+          <span className="small muted">
+            Shown: {formatAud(filtered.reduce((n, c) => n + (audFor(c) ?? 0) * c.quantity, 0))}
+            {' · '}1 USD = {pricing.rate.toFixed(3)} AUD on {pricing.date}
+          </span>
+        )}
+        {showPrices && !pricing && !priceError && <span className="small faint">Fetching prices…</span>}
+        {showPrices && priceError && <span className="small" style={{ color: 'var(--rose)' }}>Prices unavailable: {priceError}</span>}
+      </div>
+
       {pool.cards.length === 0 ? (
         <div className="empty">
           <strong>The pool is empty</strong>
@@ -101,7 +145,7 @@ export default function PoolScreen() {
       ) : (
         <div className="grid">
           {filtered.map((c) => (
-            <Tile key={c.id} card={c} onOpen={() => setOpen(c)} />
+            <Tile key={c.id} card={c} aud={audFor(c)} foil={pricing?.prices[c.scryfall_id]?.foil} onOpen={() => setOpen(c)} />
           ))}
         </div>
       )}
@@ -111,7 +155,7 @@ export default function PoolScreen() {
   )
 }
 
-function Tile({ card, onOpen }: { card: PoolCard; onOpen: () => void }) {
+function Tile({ card, aud, foil, onOpen }: { card: PoolCard; aud: number | null; foil?: boolean; onOpen: () => void }) {
   const pool = usePool()
   const loan = pool.activeLoanFor(card.id)
   const owner = pool.playerById(card.owner_id)
@@ -123,6 +167,12 @@ function Tile({ card, onOpen }: { card: PoolCard; onOpen: () => void }) {
       <div className="art">
         <img src={card.image_normal || card.image_small} alt="" loading="lazy" />
         {card.quantity > 1 && <span className="qty">×{card.quantity}</span>}
+        {aud !== null && (
+          <span className="price" title={foil ? 'Foil price; no non-foil price listed' : 'Scryfall price, converted to AUD'}>
+            {formatAud(aud)}
+            {foil ? ' ✦' : ''}
+          </span>
+        )}
         {loan?.status === 'lent' && <span className="tag">{borrowerIsMe ? 'With you' : `With ${borrower?.name ?? 'someone'}`}</span>}
         {loan?.status === 'requested' && (
           <span className="tag requested">{borrowerIsMe ? 'You asked' : `${borrower?.name ?? 'Someone'} asked`}</span>
