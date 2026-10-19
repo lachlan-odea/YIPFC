@@ -38,15 +38,22 @@ other phones update within a second.
 
 ## Deploy
 
-Any static host works. The build output is `dist/`.
+The app is published with GitHub Pages at
+<https://lachlan-odea.github.io/pod-pool/>. Every push to `main` runs
+[`.github/workflows/deploy.yml`](.github/workflows/deploy.yml), which runs the
+tests, builds, and deploys `dist/`.
 
-- **Netlify / Vercel / Cloudflare Pages**: point it at this repo, build command
-  `npm run build`, publish directory `dist`, and add the two `VITE_SUPABASE_*`
-  variables in the host's environment settings.
-- **GitHub Pages**: set `base` in `vite.config.ts` to the repo path first.
+To turn on pod sharing in the deployed app, add two repository secrets in
+GitHub (Settings, Secrets and variables, Actions): `VITE_SUPABASE_URL` and
+`VITE_SUPABASE_ANON_KEY`. The next deploy picks them up.
 
-HTTPS is required for the camera and for installing the app, and all of these
-hosts give you that for free.
+The site lives under the `/pod-pool/` path, which is set as `base` in
+`vite.config.ts`. If you fork this under a different repo name, change that
+one line. Any other static host works too: build command `npm run build`,
+publish directory `dist`.
+
+HTTPS is required for the camera and for installing the app; GitHub Pages
+provides it.
 
 ## How scanning works
 
