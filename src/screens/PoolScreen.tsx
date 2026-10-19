@@ -47,21 +47,6 @@ export default function PoolScreen() {
     return p ? p.usd * pricing.rate : null
   }
 
-  // Price sorting only makes sense while prices are shown; unpriced cards sink to the bottom.
-  const shown = useMemo(() => {
-    if (!showPrices || sort === 'name' || !pricing) return filtered
-    const dir = sort === 'price-desc' ? -1 : 1
-    return filtered
-      .map((c) => ({ c, v: audFor(c) }))
-      .sort((a, b) => {
-        if (a.v === null && b.v === null) return a.c.name.localeCompare(b.c.name)
-        if (a.v === null) return 1
-        if (b.v === null) return -1
-        return (a.v - b.v) * dir || a.c.name.localeCompare(b.c.name)
-      })
-      .map((x) => x.c)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filtered, showPrices, sort, pricing])
 
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase()
@@ -92,6 +77,22 @@ export default function PoolScreen() {
     for (const c of pool.cards) if (!m.has(c.set_code)) m.set(c.set_code, c.set_name || c.set_code.toUpperCase())
     return [...m.entries()].sort((a, b) => a[1].localeCompare(b[1]))
   }, [pool.cards])
+
+  // Price sorting only makes sense while prices are shown; unpriced cards sink to the bottom.
+  const shown = useMemo(() => {
+    if (!showPrices || sort === 'name' || !pricing) return filtered
+    const dir = sort === 'price-desc' ? -1 : 1
+    return filtered
+      .map((c) => ({ c, v: audFor(c) }))
+      .sort((a, b) => {
+        if (a.v === null && b.v === null) return a.c.name.localeCompare(b.c.name)
+        if (a.v === null) return 1
+        if (b.v === null) return -1
+        return (a.v - b.v) * dir || a.c.name.localeCompare(b.c.name)
+      })
+      .map((x) => x.c)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filtered, showPrices, sort, pricing])
 
   const anyFilter = colors.length > 0 || onlyAvailable || owner !== 'all' || set !== 'all' || type !== 'all' || !!q
   const clearAll = () => {
