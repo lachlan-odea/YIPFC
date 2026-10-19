@@ -3,6 +3,7 @@ import { usePool } from '../lib/store'
 import type { PoolCard } from '../lib/types'
 import { Icons, Pip, Pips } from '../components/ui'
 import CardDetail from '../components/CardDetail'
+import SetCompletion from '../components/SetCompletion'
 import { audFor as priceFor, audRate, formatAud, usdPrices, type Price } from '../lib/prices'
 
 const PRICES_KEY = 'yipfc/show-prices'
@@ -24,6 +25,7 @@ export default function PoolScreen() {
   const [pricing, setPricing] = useState<Pricing | null>(null)
   const [priceError, setPriceError] = useState<string | null>(null)
   const [sort, setSort] = useState<'name' | 'price-desc' | 'price-asc'>('name')
+  const [showSets, setShowSets] = useState(false)
 
   // Fetch today's rate and any prices we do not have yet whenever prices are shown.
   const idKey = pool.cards.map((c) => c.scryfall_id).sort().join(',')
@@ -175,9 +177,22 @@ export default function PoolScreen() {
             {' · '}1 USD = {pricing.rate.toFixed(3)} AUD on {pricing.date}
           </span>
         )}
+        <button className="chip" aria-pressed={showSets} onClick={() => setShowSets((v) => !v)} style={{ marginLeft: 'auto' }}>
+          Set completion
+        </button>
         {showPrices && !pricing && !priceError && <span className="small faint">Fetching prices…</span>}
         {showPrices && priceError && <span className="small" style={{ color: 'var(--rose)' }}>Prices unavailable: {priceError}</span>}
       </div>
+
+      {showSets && (
+        <div className="set-panel">
+          <div className="row between">
+            <strong>How much of each set the pod holds</strong>
+            <span className="small muted">Tap a set to filter the pool to it</span>
+          </div>
+          <SetCompletion selected={set} onSelect={setSet} />
+        </div>
+      )}
 
       {pool.cards.length === 0 ? (
         <div className="empty">

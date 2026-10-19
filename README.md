@@ -124,6 +124,18 @@ and how much storage the app is using. It also has the steps for installing
 YIPFC to your home screen, which gives a full-screen app with the camera one tap
 away.
 
+## Achievements and set completion
+
+The **You** tab shows a grid of achievements, from *Dipping your toe in* for
+your first card through lending, borrowing and deck building, with progress
+bars on the ones still to come. Pod achievements, shown in cyan, count
+everyone's cards together: a quarter of a set, half a set, and *Set complete*.
+A toast appears when you earn a new one.
+
+On the **Pool** tab, **Set completion** opens a list of every set the pod has
+cards from, with how many distinct cards you hold between you out of the set's
+printed size. Tap a set to filter the pool to it.
+
 ## Offline use
 
 The pool keeps a local copy on your phone. It opens with no signal, and anything

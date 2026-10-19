@@ -5,6 +5,7 @@ import PoolScreen from './screens/PoolScreen'
 import AddScreen from './screens/AddScreen'
 import LoansScreen from './screens/LoansScreen'
 import DecksScreen from './screens/DecksScreen'
+import { AchievementWatcher } from './components/Achievements'
 import MeScreen from './screens/MeScreen'
 import Welcome from './screens/Welcome'
 
@@ -45,6 +46,7 @@ export default function App() {
 
   return (
     <ToastProvider>
+      <AchievementWatcher />
       <div className="app">
         <header className="topbar">
           <div className="wordmark">

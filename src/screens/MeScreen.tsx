@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { ME_KEY, usePool } from '../lib/store'
 import { errorText, useToast } from '../components/ui'
+import Achievements from '../components/Achievements'
 
 type InstallPrompt = Event & { prompt: () => Promise<void> }
 
@@ -75,6 +76,8 @@ export default function MeScreen() {
         <dt>Storage</dt>
         <dd>{pool.mode === 'shared' ? 'Shared with the pod, live' : 'This device only'}</dd>
       </dl>
+
+      <Achievements />
 
       {pool.mode === 'local' && (
         <div className="notice warn">

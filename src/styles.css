@@ -1285,6 +1285,137 @@ img.pip,
   height: 18px;
 }
 
+/* ---------- achievements and set completion ---------- */
+
+.ach-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 8px;
+}
+
+.ach {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: var(--felt-2);
+  opacity: 0.55;
+  filter: saturate(0.3);
+  min-width: 0;
+}
+
+.ach strong {
+  font-weight: 600;
+  font-size: 14px;
+  line-height: 1.2;
+}
+
+.ach .small {
+  color: var(--ink-3);
+}
+
+.ach.earned {
+  opacity: 1;
+  filter: none;
+  border-color: color-mix(in srgb, var(--gold) 55%, transparent);
+  background: linear-gradient(160deg, color-mix(in srgb, var(--gold) 16%, var(--felt-2)), var(--felt-2) 70%);
+  box-shadow: 0 8px 24px -14px rgba(255, 47, 164, 0.6);
+}
+
+.ach.earned.pod {
+  border-color: color-mix(in srgb, var(--cyan) 55%, transparent);
+  background: linear-gradient(160deg, color-mix(in srgb, var(--cyan) 14%, var(--felt-2)), var(--felt-2) 70%);
+  box-shadow: 0 8px 24px -14px rgba(40, 215, 240, 0.6);
+}
+
+.ach-icon {
+  font-size: 26px;
+  line-height: 1;
+}
+
+.ach-bar {
+  display: block;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--felt-4);
+  overflow: hidden;
+  margin-top: 4px;
+}
+
+.ach-bar b {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, var(--pink), var(--cyan));
+}
+
+.set-panel {
+  margin-top: 12px;
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: var(--felt-2);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.set-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 50dvh;
+  overflow: auto;
+}
+
+.set-row {
+  display: grid;
+  grid-template-columns: 28px 1fr auto;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 10px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--felt-3);
+  color: inherit;
+  text-align: left;
+  font: inherit;
+}
+
+.set-row[aria-pressed='true'] {
+  border-color: var(--gold);
+}
+
+.set-row.complete {
+  border-color: var(--lime);
+}
+
+.set-icon {
+  width: 28px;
+  height: 28px;
+  filter: invert(0.92) sepia(0.2) saturate(0.6);
+}
+
+.set-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.set-text strong {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.set-pct {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--gold-2);
+}
+
 /* Session tray under the viewfinder. */
 .scan-tray {
   display: flex;
