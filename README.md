@@ -48,9 +48,14 @@ Count,Name,Edition,Collector Number   CSV header row
 Scanning works like ManaBox: the camera stays on and you hold cards up one after
 another. Each card is read on your device and nothing is uploaded.
 
-- A card is added when the read is confident, or when two reads in a row agree
-  and Scryfall recognises the name. The frame flashes green, a bubble shows the
-  card, and the phone buzzes. A sound plays once you have tapped the page.
+- Two recognisers race on every frame. The picture matcher compares the art
+  window against an index of every distinct Scryfall artwork, entirely on your
+  phone, and usually wins within half a second. The name reader (OCR) runs
+  alongside and catches cards the picture matcher is unsure about. Whichever
+  recognises the card first adds it: the frame flashes green, a bubble shows
+  the card, and the phone buzzes. A sound plays once you have tapped the page.
+- The art index is about 3 MB and downloads on the first scan, then stays
+  cached. Without it, scanning falls back to the name reader alone.
 - The bottom-left footer is read for the collector number and set code, to pin
   down the exact printing. When that fails, the default printing is used and you
   can change it afterwards.

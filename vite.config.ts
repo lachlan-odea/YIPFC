@@ -30,8 +30,16 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
+        globIgnores: ['**/art-index.bin'],
         maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
         runtimeCaching: [
+          {
+            // Art index for picture recognition (~3 MB): fetched on the first
+            // scan, then served from cache; a new deploy's file replaces it.
+            urlPattern: /\/art-index\.bin$/i,
+            handler: 'StaleWhileRevalidate',
+            options: { cacheName: 'art-index', expiration: { maxEntries: 2 } },
+          },
           {
             // Card images: cache first, they never change for a given printing.
             urlPattern: /^https:\/\/cards\.scryfall\.io\/.*/i,

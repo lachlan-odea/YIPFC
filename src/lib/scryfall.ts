@@ -79,6 +79,11 @@ export function namedExact(name: string, set?: string): Promise<ScryfallCard> {
   return request<ScryfallCard>(`/cards/named?exact=${encodeURIComponent(name)}${setParam}`)
 }
 
+/** One card by Scryfall id (what the art index stores). */
+export function cardById(id: string): Promise<ScryfallCard> {
+  return request<ScryfallCard>(`/cards/${encodeURIComponent(id)}`)
+}
+
 /** One exact printing by set code and collector number, as printed in a card's footer. */
 export function bySetNumber(set: string, number: string): Promise<ScryfallCard> {
   return request<ScryfallCard>(`/cards/${encodeURIComponent(set.toLowerCase())}/${encodeURIComponent(number)}`)

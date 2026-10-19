@@ -7,3 +7,4 @@ dev-dist
 public/icons/*.png
 dist-tests
 public/brand/*.png
+.cache

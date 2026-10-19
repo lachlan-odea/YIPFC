@@ -9,7 +9,9 @@
     "preview": "vite preview --host",
     "typecheck": "tsc -b",
     "icons": "node scripts/make-icons.mjs",
-    "test": "tsc -p tsconfig.tests.json && node --test \"tests/**/*.test.mjs\""
+    "test": "tsc -p tsconfig.tests.json && node --test \"tests/**/*.test.mjs\"",
+    "art-index": "node scripts/build-art-index.mjs",
+    "art-index:test": "node scripts/selftest-art-index.mjs"
   },
   "dependencies": {
     "firebase": "^11.10.0",

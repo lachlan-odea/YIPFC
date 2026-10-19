@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { usePool } from '../lib/store'
-import { bySetNumber, namedFuzzy, toPoolCard, type ScryfallCard } from '../lib/scryfall'
+import { bySetNumber, cardById, namedFuzzy, toPoolCard, type ScryfallCard } from '../lib/scryfall'
+import { bestArtMatch, loadArtIndex, type ArtIndex } from '../lib/artHash'
 import { cropFooterBand, cropTitleBand, readFooter, readTitle, warmUp, type Frame } from '../lib/ocr'
 import { scanFeedback, unlockAudio } from '../lib/feedback'
 import { errorText } from './ui'
@@ -20,10 +21,19 @@ const CONFIDENT = 80
 const LOCK_GAP_MS = 1200
 /** The same card counts again only after this long AND after the frame has shown something else. */
 const SAME_CARD_MS = 1500
+/**
+ * Picture matching thresholds (Hamming distance out of 256). A frame counts
+ * when its nearest artwork is this close AND clearly ahead of the nearest
+ * different card; two agreeing frames lock, or one very close frame.
+ */
+const ART_MAX = 60
+const ART_GAP = 14
+const ART_SURE = 34
+const ART_TICK_MS = 140
 /** How long the "got it" bubble stays up. */
 const FLASH_MS = 1800
 
-type Readout = { kind: 'idle' | 'reading' | 'checking'; text: string }
+type Readout = { kind: 'idle' | 'reading' | 'checking' | 'art'; text: string }
 type Flash = { id: number; card: ScryfallCard; count: number }
 
 /**
@@ -45,6 +55,9 @@ export default function Scanner({ onDone }: { onDone?: () => void }) {
   const [flash, setFlash] = useState<Flash | null>(null)
   const [items, setItems] = useState<ScanItem[]>([])
   const [paused, setPaused] = useState(false)
+  const [artIndex, setArtIndex] = useState<ArtIndex | null>(null)
+  /** Shared between the picture loop and the OCR loop so they cannot both lock the same card. */
+  const lockRef = useRef({ at: 0, name: '', key: '', seenOther: true })
 
   // ---- camera ------------------------------------------------------------
 
@@ -85,6 +98,7 @@ export default function Scanner({ onDone }: { onDone?: () => void }) {
 
   useEffect(() => {
     warmUp()
+    void loadArtIndex().then(setArtIndex)
     void start()
     document.addEventListener('pointerdown', unlockAudio, { once: true })
     return () => {
@@ -188,10 +202,7 @@ export default function Scanner({ onDone }: { onDone?: () => void }) {
     if (!live) return
     let cancelled = false
     let lastKey = ''
-    let lastLockAt = 0
-    let lastLockName = ''
-    let lastLockKey = ''
-    let seenOtherSinceLock = true
+    const lock = lockRef.current
     const failed = new Set<string>()
     setReadout({ kind: 'idle', text: '' })
 
@@ -216,11 +227,11 @@ export default function Scanner({ onDone }: { onDone?: () => void }) {
         const stable = key.length >= 4 && key === lastKey
         const confident = key.length >= 6 && confidence >= CONFIDENT
         lastKey = key
-        if (key !== lastLockKey) seenOtherSinceLock = true
+        if (key !== lock.key) lock.seenOther = true
         setReadout(text ? { kind: 'reading', text } : { kind: 'idle', text: '' })
 
         if ((!stable && !confident) || failed.has(key)) continue
-        if (Date.now() - lastLockAt < LOCK_GAP_MS) continue
+        if (Date.now() - lock.at < LOCK_GAP_MS) continue
 
         setReadout({ kind: 'checking', text })
         let card: ScryfallCard
@@ -234,12 +245,12 @@ export default function Scanner({ onDone }: { onDone?: () => void }) {
 
         // Same card still in the frame: do not count it again until it has
         // left the frame (or another card was shown) and a moment has passed.
-        if (card.name === lastLockName && (!seenOtherSinceLock || Date.now() - lastLockAt < SAME_CARD_MS)) continue
-
-        lastLockAt = Date.now()
-        lastLockName = card.name
-        lastLockKey = key
-        seenOtherSinceLock = false
+        if (card.name === lock.name && (!lock.seenOther || Date.now() - lock.at < SAME_CARD_MS)) continue
+        if (Date.now() - lock.at < LOCK_GAP_MS) continue // the picture loop may have beaten us
+        lock.at = Date.now()
+        lock.name = card.name
+        lock.key = key
+        lock.seenOther = false
 
         // Pin the exact printing from the footer when it can be read. This
         // costs one more OCR pass and one request, so it only runs on a lock.
@@ -263,6 +274,72 @@ export default function Scanner({ onDone }: { onDone?: () => void }) {
     // captureStill/recognised only touch refs and setters.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [live])
+
+  // ---- the picture loop ------------------------------------------------------
+  // Runs alongside OCR: hashes the art window several times a second and
+  // locks as soon as two frames agree on the same artwork (or one is very
+  // close). Whichever loop recognises the card first wins; the other skips.
+  useEffect(() => {
+    if (!live || !artIndex) return
+    let cancelled = false
+    let lastId = ''
+    let lastOracle = ''
+    const lock = lockRef.current
+
+    const tick = async () => {
+      while (!cancelled) {
+        await sleep(ART_TICK_MS)
+        if (cancelled) return
+        if (Date.now() - lock.at < LOCK_GAP_MS) continue
+        const still = captureStill()
+        if (!still) continue
+        const m = bestArtMatch(artIndex, still, still.width, still.height, FRAME)
+        if (!m) continue
+        const good = m.distance <= ART_MAX && m.runnerUp - m.distance >= ART_GAP
+        if (!good) {
+          if (lastOracle) lock.seenOther = true
+          lastId = ''
+          lastOracle = ''
+          continue
+        }
+        const agree = m.oracleId === lastOracle
+        lastId = m.id
+        lastOracle = m.oracleId
+        if (!agree && m.distance > ART_SURE) continue
+        if (m.oracleId !== lock.key) lock.seenOther = true
+        else if (!lock.seenOther || Date.now() - lock.at < SAME_CARD_MS) continue
+
+        setReadout({ kind: 'art', text: 'picture match' })
+        let card: ScryfallCard
+        try {
+          card = await cardById(lastId)
+        } catch {
+          continue
+        }
+        if (cancelled || Date.now() - lock.at < LOCK_GAP_MS) continue
+        lock.at = Date.now()
+        lock.name = card.name
+        lock.key = m.oracleId
+        lock.seenOther = false
+        try {
+          const footer = await readFooter(cropFooterBand(still, still.width, still.height, FRAME))
+          if (footer) {
+            const exact = await bySetNumber(footer.set, footer.number)
+            if (exact.name.toLowerCase() === card.name.toLowerCase()) card = exact
+          }
+        } catch {
+          /* keep the matched printing */
+        }
+        if (cancelled) return
+        recognised(card)
+      }
+    }
+    void tick()
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [live, artIndex])
 
   // ---- photo fallback for browsers with no live camera -----------------------
 
@@ -312,6 +389,7 @@ export default function Scanner({ onDone }: { onDone?: () => void }) {
                   Reading <span className="readout">{readout.text}</span>
                 </>
               )}
+              {!paused && readout.kind === 'art' && <>Matched by picture…</>}
               {!paused && readout.kind === 'checking' && (
                 <>
                   Checking <span className="readout">{readout.text}</span>…
@@ -360,7 +438,7 @@ export default function Scanner({ onDone }: { onDone?: () => void }) {
 
       {camera === 'on' && items.length === 0 && (
         <p className="small muted" style={{ textAlign: 'center', margin: 0 }}>
-          Each card is added as soon as it is recognised. Swap to the next one when you feel the buzz.
+          Each card is added as soon as it is recognised{artIndex ? ', by picture or by name' : ''}. Swap to the next one when you feel the buzz.
         </p>
       )}
 
