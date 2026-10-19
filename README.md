@@ -12,8 +12,8 @@ Each player has their own list of cards they offer. The **Pool** tab shows
 everyone's cards together, sorted by name.
 
 - Search by name, type or rules text.
-- Filter by owner, set, card type, colour identity (including colourless) and
-  whether the card is free to borrow right now.
+- Filter by owner, set, card type and colour identity (including colourless).
+  Cards that are out on loan are greyed out.
 - Tap a card to see its printing, the spare copies you have, and who owns it.
 - Change the printing, foil or non-foil finish, quantity and note of your own
   cards, or take a card out of the pool. Foil and non-foil copies of the same

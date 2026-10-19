@@ -18,7 +18,6 @@ export default function PoolScreen() {
   const [owner, setOwner] = useState<string | 'all'>('all')
   const [set, setSet] = useState<string>('all')
   const [type, setType] = useState<string>('all')
-  const [onlyAvailable, setOnlyAvailable] = useState(false)
   const [colors, setColors] = useState<string[]>([])
   const [open, setOpen] = useState<PoolCard | null>(null)
   const [showPrices, setShowPrices] = useState(() => localStorage.getItem(PRICES_KEY) === '1')
@@ -52,7 +51,6 @@ export default function PoolScreen() {
         if (owner !== 'all' && c.owner_id !== owner) return false
         if (set !== 'all' && c.set_code !== set) return false
         if (type !== 'all' && !c.type_line.split(' // ')[0].includes(type)) return false
-        if (onlyAvailable && pool.activeLoanFor(c.id)) return false
         if (colors.includes('C') ? c.color_identity.length > 0 : colors.length && !colors.every((col) => c.color_identity.includes(col)))
           return false
         if (!needle) return true
@@ -63,7 +61,7 @@ export default function PoolScreen() {
         )
       })
       .sort((a, b) => a.name.localeCompare(b.name))
-  }, [pool.cards, pool.activeLoanFor, q, owner, set, type, onlyAvailable, colors])
+  }, [pool.cards, q, owner, set, type, colors])
 
   // Colourless is exclusive: a card cannot be both colourless and green.
   const toggleColor = (c: string) =>
@@ -91,10 +89,9 @@ export default function PoolScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filtered, showPrices, sort, pricing])
 
-  const anyFilter = colors.length > 0 || onlyAvailable || owner !== 'all' || set !== 'all' || type !== 'all' || !!q
+  const anyFilter = colors.length > 0 || owner !== 'all' || set !== 'all' || type !== 'all' || !!q
   const clearAll = () => {
     setColors([])
-    setOnlyAvailable(false)
     setOwner('all')
     setSet('all')
     setType('all')
@@ -145,9 +142,6 @@ export default function PoolScreen() {
         </select>
       </div>
       <div className="chips">
-        <button className="chip" aria-pressed={onlyAvailable} onClick={() => setOnlyAvailable((v) => !v)}>
-          Available now
-        </button>
         {COLORS.map((c) => (
           <button key={c} className="chip" aria-pressed={colors.includes(c)} onClick={() => toggleColor(c)} aria-label={`Colour ${c}`}>
             <Pip c={c} />
