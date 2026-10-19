@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { LocalStore } from './localStore'
 import { uid } from './uid'
 import { FirebaseStore, firebaseConfigFromEnv } from './firebaseStore'
-import type { Loan, LoanStatus, NewPoolCard, Player, PoolCard, PoolStore, Snapshot } from './types'
+import type { Deck, Loan, LoanStatus, NewPoolCard, Player, PoolCard, PoolStore, Snapshot } from './types'
 
 // Storage keys keep the app's original name so devices that already joined stay signed in.
 export const ME_KEY = 'pod-pool/me'
@@ -22,6 +22,7 @@ type PoolContext = {
   players: Player[]
   cards: PoolCard[]
   loans: Loan[]
+  decks: Deck[]
   me: Player | null
   playerById: (id: string) => Player | undefined
   /** The one open loan (requested or lent) on a card, if any. */
@@ -32,6 +33,8 @@ type PoolContext = {
   removeCard: PoolStore['removeCard']
   requestLoan: (cardId: string) => Promise<void>
   setLoanStatus: (id: string, status: LoanStatus) => Promise<void>
+  saveDeck: (deck: Deck) => Promise<void>
+  removeDeck: (id: string) => Promise<void>
   refresh: () => Promise<void>
 }
 
@@ -39,7 +42,7 @@ const Ctx = createContext<PoolContext | null>(null)
 
 export function PoolProvider({ children }: { children: ReactNode }) {
   const store = useMemo(createStore, [])
-  const [snap, setSnap] = useState<Snapshot>({ players: [], cards: [], loans: [] })
+  const [snap, setSnap] = useState<Snapshot>({ players: [], cards: [], loans: [], decks: [] })
   const [ready, setReady] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [meId, setMeId] = useState<string | null>(() => localStorage.getItem(ME_KEY))
@@ -47,7 +50,7 @@ export function PoolProvider({ children }: { children: ReactNode }) {
   const refresh = useCallback(async () => {
     try {
       const s = await store.load()
-      setSnap({ players: [...s.players], cards: [...s.cards], loans: [...s.loans] })
+      setSnap({ players: [...s.players], cards: [...s.cards], loans: [...s.loans], decks: [...s.decks] })
       setError(null)
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
@@ -74,6 +77,7 @@ export function PoolProvider({ children }: { children: ReactNode }) {
       players: snap.players,
       cards: snap.cards,
       loans: snap.loans,
+      decks: snap.decks,
       me,
       playerById,
       activeLoanFor,
@@ -121,6 +125,14 @@ export function PoolProvider({ children }: { children: ReactNode }) {
       },
       async setLoanStatus(id, status) {
         await store.setLoanStatus(id, status)
+        await refresh()
+      },
+      async saveDeck(deck) {
+        await store.saveDeck(deck)
+        await refresh()
+      },
+      async removeDeck(id) {
+        await store.removeDeck(id)
         await refresh()
       },
       refresh,

@@ -11,6 +11,7 @@ const svg = (d: ReactNode) => (
 export const Icons = {
   pool: () => svg(<><rect x="3" y="5" width="11" height="15" rx="1.5" /><path d="M8 3h11a1.5 1.5 0 0 1 1.5 1.5V17" /></>),
   add: () => svg(<><circle cx="12" cy="12" r="9" /><path d="M12 8v8M8 12h8" /></>),
+  decks: () => svg(<><rect x="3" y="4" width="11" height="15" rx="1.5" /><path d="M9 7h2M9 10h2M14 6l5 1.5v13L14 19" /></>),
   loans: () => svg(<><path d="M4 9h13l-3-3M20 15H7l3 3" /></>),
   me: () => svg(<><circle cx="12" cy="8" r="4" /><path d="M4 21c0-4 4-6 8-6s8 2 8 6" /></>),
   search: () => svg(<><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></>),

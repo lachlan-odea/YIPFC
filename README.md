@@ -83,6 +83,25 @@ card to you or leave it. The **Loans** tab tracks everything that is moving:
 Each card can have a note for borrowers, such as "ask before using in a deck",
 shown on the card.
 
+## Decks
+
+The **Decks** tab is a deck builder that knows what the pod has. Start a deck
+and add cards three ways: pick from the pool, search Scryfall for anything, or
+paste a list from Moxfield, Archidekt or a similar site. Every line shows where
+the copies would come from:
+
+- **In your pile:** spares you have listed yourself.
+- **Borrowable:** free copies another player has listed. The **Ask** button
+  sends them a loan request, and one button at the bottom asks for everything
+  at once.
+- **With you** or **asked:** copies you already hold or have requested.
+- **Missing:** nobody in the pod has it spare.
+
+The bar at the top shows the split and the chips filter the list. The star on a
+row marks the commander. Decks are shared with the pod, so friends can open
+yours read-only and see what they could lend. **Copy as a decklist** gives the
+plain "1 Card Name" form every deck site accepts.
+
 ## Players and sign-in
 
 The first time you open the app you type your name. If someone in the pod

@@ -1,6 +1,7 @@
 import { getApps, initializeApp, type FirebaseApp } from 'firebase/app'
 import {
   collection,
+  deleteDoc,
   doc,
   getDocs,
   initializeFirestore,
@@ -17,7 +18,7 @@ import {
   type QuerySnapshot,
   type Unsubscribe,
 } from 'firebase/firestore'
-import type { Loan, LoanStatus, NewPoolCard, Player, PoolCard, PoolStore, Snapshot } from './types'
+import type { Deck, Loan, LoanStatus, NewPoolCard, Player, PoolCard, PoolStore, Snapshot } from './types'
 
 export type FirebaseConfig = {
   apiKey: string
@@ -33,7 +34,7 @@ const WRITE_CHUNK = 400
  * Shared store for the whole pod, backed by Cloud Firestore.
  *
  * Three top-level collections mirror the three types in ./types:
- *   players/{id}  cards/{id}  loans/{id}
+ *   players/{id}  cards/{id}  loans/{id}  decks/{id}
  *
  * A card's document id is `${owner_id}__${scryfall_id}`, so "same owner, same
  * printing" lands on the same document and addCards can bump quantity instead
@@ -48,7 +49,7 @@ export class FirebaseStore implements PoolStore {
   readonly mode = 'shared' as const
   private db: Firestore
   private listeners = new Set<() => void>()
-  private snap: Snapshot = { players: [], cards: [], loans: [] }
+  private snap: Snapshot = { players: [], cards: [], loans: [], decks: [] }
   private unsubs: Unsubscribe[] = []
   private firstLoad: Promise<void> | null = null
 
@@ -68,11 +69,11 @@ export class FirebaseStore implements PoolStore {
     return () => void this.listeners.delete(onChange)
   }
 
-  /** Attach the three realtime listeners once; resolve after each has fired. */
+  /** Attach the realtime listeners once; resolve after each has fired. */
   private start(): Promise<void> {
     if (this.firstLoad) return this.firstLoad
     this.firstLoad = new Promise<void>((resolve, reject) => {
-      let pending = 3
+      let pending = 4
       const done = () => {
         pending -= 1
         if (pending === 0) resolve()
@@ -105,6 +106,7 @@ export class FirebaseStore implements PoolStore {
       attach<Player>('players', (a, b) => a.name.localeCompare(b.name))
       attach<PoolCard>('cards', (a, b) => a.name.localeCompare(b.name))
       attach<Loan>('loans', (a, b) => b.requested_at.localeCompare(a.requested_at))
+      attach<Deck>('decks', (a, b) => b.updated_at.localeCompare(a.updated_at))
     })
     return this.firstLoad
   }
@@ -185,6 +187,14 @@ export class FirebaseStore implements PoolStore {
 
   async setLoanStatus(id: string, status: LoanStatus) {
     await updateDoc(doc(this.db, 'loans', id), { status, updated_at: new Date().toISOString() })
+  }
+
+  async saveDeck(deck: Deck) {
+    await setDoc(doc(this.db, 'decks', deck.id), strip(deck))
+  }
+
+  async removeDeck(id: string) {
+    await deleteDoc(doc(this.db, 'decks', id))
   }
 
   /** Tear down listeners (used by tests and hot reload; the app never calls it). */

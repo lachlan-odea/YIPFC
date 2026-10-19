@@ -893,6 +893,278 @@ main {
   }
 }
 
+/* ---------- decks ---------- */
+
+.deck-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 10px;
+}
+
+.deck-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: var(--felt-2);
+  color: inherit;
+  text-align: left;
+  font: inherit;
+}
+
+.deck-tile:hover {
+  border-color: var(--line-strong);
+}
+
+.deck-name {
+  flex: 1;
+  font-weight: 700;
+  font-size: 20px;
+  font-variation-settings: 'opsz' 96, 'wdth' 90;
+}
+
+.cover-bar {
+  display: flex;
+  height: 8px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--rose) 28%, var(--felt-3));
+  margin-top: 6px;
+}
+
+.cover-bar i {
+  display: block;
+  height: 100%;
+}
+
+.cover-bar .yours,
+.cover-legend .yours,
+.pill.yours,
+.chip.yours[aria-pressed='true'] {
+  background: var(--lime);
+}
+
+.cover-bar .pending,
+.pill.pending,
+.chip.pending[aria-pressed='true'] {
+  background: var(--cyan);
+}
+
+.cover-bar .borrow,
+.pill.borrow,
+.chip.borrow[aria-pressed='true'] {
+  background: var(--pink);
+}
+
+.pill.missing,
+.chip.missing[aria-pressed='true'] {
+  background: var(--rose);
+}
+
+.cover-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+}
+
+.cover-legend span {
+  background: none;
+}
+
+.cover-legend .yours {
+  color: var(--lime);
+}
+
+.cover-legend .pending {
+  color: var(--cyan);
+}
+
+.cover-legend .borrow {
+  color: var(--gold-2);
+}
+
+.cover-legend .missing {
+  color: var(--rose);
+}
+
+.deck-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pill {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #10081a;
+  line-height: 1.5;
+}
+
+.pill.pending {
+  color: #042029;
+}
+
+.pill.missing {
+  color: #fff;
+}
+
+.chip.yours[aria-pressed='true'],
+.chip.borrow[aria-pressed='true'],
+.chip.pending[aria-pressed='true'],
+.chip.missing[aria-pressed='true'] {
+  color: #10081a;
+  border-color: transparent;
+}
+
+.chip.missing[aria-pressed='true'] {
+  color: #fff;
+}
+
+.deck-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.deck-row {
+  display: grid;
+  grid-template-columns: 40px 1fr auto;
+  gap: 10px;
+  align-items: center;
+  padding: 6px 8px 6px 6px;
+  border-radius: 12px;
+  background: var(--felt-2);
+  border: 1px solid var(--line);
+  border-left-width: 3px;
+}
+
+.deck-row.yours {
+  border-left-color: var(--lime);
+}
+
+.deck-row.covered,
+.deck-row.partial {
+  border-left-color: var(--pink);
+}
+
+.deck-row.missing {
+  border-left-color: var(--rose);
+}
+
+.deck-row .thumb {
+  padding: 0;
+  border: 0;
+  background: none;
+  width: 40px;
+}
+
+.deck-row .thumb img,
+.deck-row .thumb .ph {
+  display: block;
+  width: 40px;
+  aspect-ratio: 63 / 88;
+  border-radius: 3px;
+  background: var(--felt-3);
+  object-fit: cover;
+}
+
+.deck-row .thumb:disabled {
+  cursor: default;
+}
+
+.deck-row-text {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.deck-row-text strong {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.deck-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.qty-static {
+  font-weight: 600;
+  min-width: 32px;
+  text-align: center;
+}
+
+.tag-sm {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--gold) 22%, transparent);
+  color: var(--gold-2);
+}
+
+.pick-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 46dvh;
+  overflow: auto;
+}
+
+.pick-row {
+  display: grid;
+  grid-template-columns: 32px 1fr auto;
+  gap: 10px;
+  align-items: center;
+  padding: 6px 10px 6px 6px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--felt-2);
+  color: inherit;
+  text-align: left;
+  font: inherit;
+}
+
+.pick-row img {
+  width: 32px;
+  border-radius: 3px;
+}
+
+.pick-text {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.pick-text strong {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.btn.icon {
+  padding: 8px;
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+}
+
+.btn.icon svg {
+  width: 18px;
+  height: 18px;
+}
+
 /* Session tray under the viewfinder. */
 .scan-tray {
   display: flex;

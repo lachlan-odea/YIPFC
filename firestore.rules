@@ -50,6 +50,19 @@ service cloud.firestore {
       allow delete: if isPod();
     }
 
+    match /decks/{deckId} {
+      allow read: if isPod();
+      allow create, update: if isPod()
+        && request.resource.data.owner_id is string
+        && request.resource.data.name is string
+        && request.resource.data.name.size() <= 80
+        && request.resource.data.cards is list
+        && request.resource.data.cards.size() <= 500
+        && isIso(request.resource.data.created_at)
+        && isIso(request.resource.data.updated_at);
+      allow delete: if isPod();
+    }
+
     match /loans/{loanId} {
       allow read: if isPod();
       allow create: if isPod()

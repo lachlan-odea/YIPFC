@@ -1,6 +1,6 @@
 import { get, set } from 'idb-keyval'
 import { uid } from './uid'
-import type { Loan, LoanStatus, NewPoolCard, Player, PoolCard, PoolStore, Snapshot } from './types'
+import type { Deck, Loan, LoanStatus, NewPoolCard, Player, PoolCard, PoolStore, Snapshot } from './types'
 
 const KEY = 'pod-pool/v1'
 
@@ -11,14 +11,15 @@ const KEY = 'pod-pool/v1'
  */
 export class LocalStore implements PoolStore {
   readonly mode = 'local' as const
-  private snap: Snapshot = { players: [], cards: [], loans: [] }
+  private snap: Snapshot = { players: [], cards: [], loans: [], decks: [] }
   private listeners = new Set<() => void>()
   private loaded = false
 
   async load(): Promise<Snapshot> {
     if (!this.loaded) {
       const stored = await get<Snapshot>(KEY)
-      if (stored) this.snap = stored
+      // Older saves predate decks; fill the gap so the rest of the app can assume it.
+      if (stored) this.snap = { ...stored, decks: stored.decks ?? [] }
       this.loaded = true
     }
     return this.snap
@@ -30,7 +31,12 @@ export class LocalStore implements PoolStore {
   }
 
   private async commit() {
-    this.snap = { players: [...this.snap.players], cards: [...this.snap.cards], loans: [...this.snap.loans] }
+    this.snap = {
+      players: [...this.snap.players],
+      cards: [...this.snap.cards],
+      loans: [...this.snap.loans],
+      decks: [...this.snap.decks],
+    }
     await set(KEY, this.snap)
     this.listeners.forEach((l) => l())
   }
@@ -95,6 +101,17 @@ export class LocalStore implements PoolStore {
   async setLoanStatus(id: string, status: LoanStatus) {
     const now = new Date().toISOString()
     this.snap.loans = this.snap.loans.map((l) => (l.id === id ? { ...l, status, updated_at: now } : l))
+    await this.commit()
+  }
+
+  async saveDeck(deck: Deck) {
+    const exists = this.snap.decks.some((d) => d.id === deck.id)
+    this.snap.decks = exists ? this.snap.decks.map((d) => (d.id === deck.id ? deck : d)) : [...this.snap.decks, deck]
+    await this.commit()
+  }
+
+  async removeDeck(id: string) {
+    this.snap.decks = this.snap.decks.filter((d) => d.id !== id)
     await this.commit()
   }
 }

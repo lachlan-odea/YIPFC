@@ -37,6 +37,28 @@ export type Loan = {
   updated_at: string
 }
 
+/** One line of a deck. Enough card data to render and group it without a lookup. */
+export type DeckCard = {
+  scryfall_id: string
+  name: string
+  quantity: number
+  type_line: string
+  mana_cost: string
+  cmc: number
+  color_identity: string[]
+  image_small: string
+  commander: boolean
+}
+
+export type Deck = {
+  id: string
+  owner_id: string
+  name: string
+  cards: DeckCard[]
+  created_at: string
+  updated_at: string
+}
+
 /** What the import/scan flows hand to the store: a card minus its pool bookkeeping. */
 export type NewPoolCard = Omit<PoolCard, 'id' | 'owner_id' | 'created_at'>
 
@@ -44,6 +66,7 @@ export type Snapshot = {
   players: Player[]
   cards: PoolCard[]
   loans: Loan[]
+  decks: Deck[]
 }
 
 export interface PoolStore {
@@ -56,4 +79,7 @@ export interface PoolStore {
   removeCard(id: string): Promise<void>
   createLoan(cardId: string, borrowerId: string): Promise<Loan>
   setLoanStatus(id: string, status: LoanStatus): Promise<void>
+  /** Insert or replace a whole deck. */
+  saveDeck(deck: Deck): Promise<void>
+  removeDeck(id: string): Promise<void>
 }

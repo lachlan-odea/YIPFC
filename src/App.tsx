@@ -4,14 +4,16 @@ import { Icons, ToastProvider } from './components/ui'
 import PoolScreen from './screens/PoolScreen'
 import AddScreen from './screens/AddScreen'
 import LoansScreen from './screens/LoansScreen'
+import DecksScreen from './screens/DecksScreen'
 import MeScreen from './screens/MeScreen'
 import Welcome from './screens/Welcome'
 
-type Tab = 'pool' | 'add' | 'loans' | 'me'
+type Tab = 'pool' | 'add' | 'decks' | 'loans' | 'me'
 
 const TABS: Array<{ id: Tab; label: string; icon: () => JSX.Element }> = [
   { id: 'pool', label: 'Pool', icon: Icons.pool },
   { id: 'add', label: 'Add', icon: Icons.add },
+  { id: 'decks', label: 'Decks', icon: Icons.decks },
   { id: 'loans', label: 'Loans', icon: Icons.loans },
   { id: 'me', label: 'You', icon: Icons.me },
 ]
@@ -58,6 +60,7 @@ export default function App() {
           {pool.error && <div className="notice warn">Could not reach the shared pool: {pool.error}</div>}
           {tab === 'pool' && <PoolScreen />}
           {tab === 'add' && <AddScreen onDone={() => setTab('pool')} />}
+          {tab === 'decks' && <DecksScreen />}
           {tab === 'loans' && <LoansScreen />}
           {tab === 'me' && <MeScreen />}
         </main>
