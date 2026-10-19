@@ -24,6 +24,7 @@ export default function PoolScreen() {
   const [showPrices, setShowPrices] = useState(() => localStorage.getItem(PRICES_KEY) === '1')
   const [pricing, setPricing] = useState<Pricing | null>(null)
   const [priceError, setPriceError] = useState<string | null>(null)
+  const [sort, setSort] = useState<'name' | 'price-desc' | 'price-asc'>('name')
 
   // Fetch today's rate and any prices we do not have yet whenever prices are shown.
   const idKey = pool.cards.map((c) => c.scryfall_id).sort().join(',')
@@ -45,6 +46,22 @@ export default function PoolScreen() {
     const p = pricing.prices[c.scryfall_id]
     return p ? p.usd * pricing.rate : null
   }
+
+  // Price sorting only makes sense while prices are shown; unpriced cards sink to the bottom.
+  const shown = useMemo(() => {
+    if (!showPrices || sort === 'name' || !pricing) return filtered
+    const dir = sort === 'price-desc' ? -1 : 1
+    return filtered
+      .map((c) => ({ c, v: audFor(c) }))
+      .sort((a, b) => {
+        if (a.v === null && b.v === null) return a.c.name.localeCompare(b.c.name)
+        if (a.v === null) return 1
+        if (b.v === null) return -1
+        return (a.v - b.v) * dir || a.c.name.localeCompare(b.c.name)
+      })
+      .map((x) => x.c)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filtered, showPrices, sort, pricing])
 
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase()
@@ -153,6 +170,13 @@ export default function PoolScreen() {
           <input type="checkbox" checked={showPrices} onChange={(e) => setShowPrices(e.target.checked)} />
           Show value in AUD
         </label>
+        {showPrices && (
+          <select className="select" value={sort} onChange={(e) => setSort(e.target.value as typeof sort)} aria-label="Sort by">
+            <option value="name">Sort: name</option>
+            <option value="price-desc">Sort: price, high to low</option>
+            <option value="price-asc">Sort: price, low to high</option>
+          </select>
+        )}
         {showPrices && pricing && filtered.length > 0 && (
           <span className="small muted">
             Shown: {formatAud(filtered.reduce((n, c) => n + (audFor(c) ?? 0) * c.quantity, 0))}
@@ -175,7 +199,7 @@ export default function PoolScreen() {
         </div>
       ) : (
         <div className="grid">
-          {filtered.map((c) => (
+          {shown.map((c) => (
             <Tile key={c.id} card={c} aud={audFor(c)} foil={pricing?.prices[c.scryfall_id]?.foil} onOpen={() => setOpen(c)} />
           ))}
         </div>
