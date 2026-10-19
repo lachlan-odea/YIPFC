@@ -807,6 +807,135 @@ main {
   font-weight: 600;
 }
 
+.viewfinder .hint.top {
+  top: 12px;
+  bottom: auto;
+}
+
+/* "Got it" bubble that slides up over the bottom of the viewfinder. */
+.scan-flash {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px 8px 8px;
+  border-radius: 12px;
+  background: rgba(10, 20, 15, 0.88);
+  border: 1px solid rgba(127, 212, 154, 0.6);
+  color: var(--ink);
+  animation: scan-flash-in 180ms ease-out;
+}
+
+.scan-flash img {
+  width: 40px;
+  border-radius: 3px;
+}
+
+.scan-flash span {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+
+.scan-flash .small {
+  color: #7fd49a;
+}
+
+@keyframes scan-flash-in {
+  from {
+    transform: translateY(12px);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+/* Session tray under the viewfinder. */
+.scan-tray {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.scan-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.scan-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px 6px 6px;
+  border-radius: 12px;
+  background: var(--surface, rgba(255, 255, 255, 0.05));
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.scan-row.error {
+  border-color: var(--rose);
+}
+
+.scan-row.adding {
+  opacity: 0.75;
+}
+
+.scan-row-main {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  background: none;
+  border: 0;
+  padding: 0;
+  color: inherit;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+
+.scan-row-main img {
+  width: 36px;
+  border-radius: 3px;
+  flex: none;
+}
+
+.scan-row-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.25;
+}
+
+.scan-row-text strong {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.scan-count {
+  flex: none;
+  min-width: 36px;
+  text-align: center;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 13px;
+  background: color-mix(in srgb, var(--gold) 18%, transparent);
+  color: var(--gold-2);
+}
+
 .viewfinder .hint {
   position: absolute;
   left: 0;

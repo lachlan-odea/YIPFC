@@ -88,25 +88,32 @@ provides it.
 
 ## How scanning works
 
-The scanner shows a card-shaped frame. Hold a card in it and the app scans on
-its own: it keeps cropping just the title band, boosting the contrast, and
-reading it with Tesseract (on-device OCR, nothing is uploaded). When two
-reads in a row agree and Scryfall recognises the name, the frame turns green,
-the picture freezes, and the closest alternatives are shown as a row of
-pictures so a misread letter is one tap to fix. After you add a card, the same
-name is ignored for a few seconds so it is not picked up again while you swap
-cards. The first scan downloads about 4 MB of OCR language data; after that it
-is cached offline.
+It works like ManaBox: the camera never stops, you just hold cards up one
+after another. For each frame the app crops the title band, boosts the
+contrast and reads it with Tesseract (on-device OCR, nothing is uploaded).
+When a read is confident, or two reads in a row agree, and Scryfall recognises
+the name, the card is added to your pool straight away: the frame flashes
+green, a bubble shows the card, and the phone buzzes (and blips, once you have
+tapped the page so the browser allows sound). It then reads the footer in the
+bottom-left corner for the collector number and set code to pin down the exact
+printing; when that fails, as it does on older frames, Scryfall's default
+printing is used and you can change it afterwards.
+
+Every card lands in a list under the viewfinder. Tap a row to change the
+printing or quantity, or take it back out of the pool. Showing the same card
+again after it has left the frame counts another copy.
+
+The first scan downloads about 4 MB of OCR language data; after that it is
+cached offline.
 
 Tips that make a big difference:
 
 - Fill the frame. The gold dashed box should sit over the card's name.
 - Avoid glare on the title bar. Foils are harder; tilt the card slightly.
-- Hold still for a second. The hint under the frame shows what it is reading.
+- Hold still for a second. The hint at the top shows what it is reading.
 
-The shutter button is still there as a manual fallback. If the camera is
-blocked, the **Photo** button opens the camera app instead and reads the title
-from the photo.
+If the camera is blocked, the **Photo** button opens the camera app instead
+and reads the card from the photo.
 
 ## Importing lists
 

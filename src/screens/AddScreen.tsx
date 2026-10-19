@@ -33,7 +33,7 @@ export default function AddScreen({ onDone }: { onDone: () => void }) {
           </span>
         </button>
       </div>
-      {mode === 'scan' && <Scanner />}
+      {mode === 'scan' && <Scanner onDone={onDone} />}
       {mode === 'search' && <SearchAdd />}
       {mode === 'list' && <ImportList onDone={onDone} />}
     </div>

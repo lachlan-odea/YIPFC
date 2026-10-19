@@ -1,59 +1,99 @@
 import { createWorker, PSM, type Worker } from 'tesseract.js'
+import { cleanTitle, parseFooter, type FooterRead } from './cardText'
+
+export { cleanTitle, parseFooter, type FooterRead }
 
 /**
- * Reads a card's title from a photo. The scanner UI asks the user to line the
- * card up inside a frame, so we only OCR the title band (the top ~9% of the
- * card) which is far more reliable than reading the whole card.
+ * Reads text off a card held up to the camera. The scanner frames the card,
+ * so we only OCR two small regions: the title band (name) and the bottom-left
+ * footer (collector number and set code, which pin down the exact printing).
  *
- * The worker and the English language data (~4 MB) download on first use and
- * are cached by the service worker after that.
+ * Two workers, because each has its own character whitelist and page mode and
+ * swapping parameters on a shared worker would race with the live loop. The
+ * English language data (~4 MB) downloads once and is cached by the service
+ * worker after that.
  */
 
-let workerPromise: Promise<Worker> | null = null
+let titleWorker: Promise<Worker> | null = null
+let footerWorker: Promise<Worker> | null = null
 
-export function getWorker(): Promise<Worker> {
-  if (!workerPromise) {
-    workerPromise = createWorker('eng', 1, { logger: () => {} }).then(async (w) => {
-      await w.setParameters({
-        // Card names: letters, spaces and a little punctuation. No digits.
-        tessedit_char_whitelist: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz '-,.",
-        // The crop is always one line of text; telling Tesseract so is faster
-        // and far more reliable than letting it hunt for a page layout.
-        tessedit_pageseg_mode: PSM.SINGLE_LINE,
-      })
-      return w
+function spawn(params: Partial<Record<string, string>>): Promise<Worker> {
+  const p = createWorker('eng', 1, { logger: () => {} }).then(async (w) => {
+    await w.setParameters(params)
+    return w
+  })
+  return p
+}
+
+function getTitleWorker(): Promise<Worker> {
+  if (!titleWorker) {
+    titleWorker = spawn({
+      // Card names: letters, spaces and a little punctuation. No digits.
+      tessedit_char_whitelist: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz '-,.",
+      // The crop is always one line of text; saying so is faster and more reliable.
+      tessedit_pageseg_mode: PSM.SINGLE_LINE,
     })
-    workerPromise.catch(() => {
-      workerPromise = null
+    titleWorker.catch(() => {
+      titleWorker = null
     })
   }
-  return workerPromise
+  return titleWorker
+}
+
+function getFooterWorker(): Promise<Worker> {
+  if (!footerWorker) {
+    footerWorker = spawn({
+      // "0042/0281 U" over "DMU · EN": digits, capitals, slash and separators.
+      tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789/ ·•*-',
+      tessedit_pageseg_mode: PSM.SINGLE_BLOCK,
+    })
+    footerWorker.catch(() => {
+      footerWorker = null
+    })
+  }
+  return footerWorker
 }
 
 export function warmUp() {
-  void getWorker().catch(() => {})
+  void getTitleWorker().catch(() => {})
+  void getFooterWorker().catch(() => {})
 }
 
 /** Card frame in viewfinder coordinates, as fractions of the video size. */
 export type Frame = { x: number; y: number; w: number; h: number }
 
+type Region = { x: number; y: number; w: number; h: number } // fractions of the card
+
+// Title band on a standard frame: roughly 4%–11% down, inset 6% each side.
+const TITLE: Region = { x: 0.06, y: 0.038, w: 0.88, h: 0.072 }
+// Footer, bottom-left: collector number line and set/language line.
+const FOOTER: Region = { x: 0.035, y: 0.918, w: 0.5, h: 0.066 }
+
 /**
- * Crops the title band out of the card frame, upsamples it and boosts contrast
- * so Tesseract has clean black-on-white text to work with.
+ * Crops a region of the card, upsamples it and stretches the contrast so
+ * Tesseract gets clean black-on-white text. Light-on-dark footers are
+ * inverted so both regions end up the same way round.
  */
-export function cropTitleBand(source: CanvasImageSource, srcW: number, srcH: number, frame: Frame): HTMLCanvasElement {
+function cropRegion(
+  source: CanvasImageSource,
+  srcW: number,
+  srcH: number,
+  frame: Frame,
+  region: Region,
+  targetW: number,
+  invertIfDark: boolean,
+): HTMLCanvasElement {
   const cardX = frame.x * srcW
   const cardY = frame.y * srcH
   const cardW = frame.w * srcW
   const cardH = frame.h * srcH
 
-  // Title band on a standard frame: roughly 4%–10.5% down, inset 6% each side.
-  const bandX = cardX + cardW * 0.06
-  const bandY = cardY + cardH * 0.038
-  const bandW = cardW * 0.88
-  const bandH = cardH * 0.072
+  const bandX = cardX + cardW * region.x
+  const bandY = cardY + cardH * region.y
+  const bandW = cardW * region.w
+  const bandH = cardH * region.h
 
-  const scale = Math.max(1, 1400 / bandW)
+  const scale = Math.max(1, targetW / bandW)
   const canvas = document.createElement('canvas')
   canvas.width = Math.round(bandW * scale)
   canvas.height = Math.round(bandH * scale)
@@ -63,15 +103,15 @@ export function cropTitleBand(source: CanvasImageSource, srcW: number, srcH: num
 
   const img = ctx.getImageData(0, 0, canvas.width, canvas.height)
   const d = img.data
-  // Greyscale, then stretch contrast between the 5th and 95th percentiles so
-  // dark text pops on any frame colour. A histogram keeps this cheap enough
-  // to run on every frame of the live scan.
+  // Greyscale, then stretch between the 5th and 95th percentiles so dark text
+  // pops on any frame colour. A histogram keeps this cheap enough for every frame.
   const greys = new Uint8ClampedArray(d.length / 4)
   const hist = new Uint32Array(256)
+  let sum = 0
   for (let i = 0, j = 0; i < d.length; i += 4, j++) {
-    const g = (d[i] * 299 + d[i + 1] * 587 + d[i + 2] * 114) / 1000
-    greys[j] = g
+    greys[j] = (d[i] * 299 + d[i + 1] * 587 + d[i + 2] * 114) / 1000
     hist[greys[j]]++
+    sum += greys[j]
   }
   const percentile = (p: number) => {
     let n = 0
@@ -85,31 +125,39 @@ export function cropTitleBand(source: CanvasImageSource, srcW: number, srcH: num
   const lo = percentile(0.05)
   const hi = percentile(0.95)
   const range = Math.max(1, hi - lo)
+  const invert = invertIfDark && sum / greys.length < 128
   for (let i = 0, j = 0; i < d.length; i += 4, j++) {
-    const v = Math.min(255, Math.max(0, ((greys[j] - lo) / range) * 255))
+    let v = Math.min(255, Math.max(0, ((greys[j] - lo) / range) * 255))
+    if (invert) v = 255 - v
     d[i] = d[i + 1] = d[i + 2] = v
   }
   ctx.putImageData(img, 0, 0)
   return canvas
 }
 
-export async function readTitle(canvas: HTMLCanvasElement): Promise<string> {
-  const worker = await getWorker()
-  const { data } = await worker.recognize(canvas)
-  return cleanTitle(data.text)
+export function cropTitleBand(source: CanvasImageSource, srcW: number, srcH: number, frame: Frame) {
+  return cropRegion(source, srcW, srcH, frame, TITLE, 1400, false)
 }
 
-/** Turns raw OCR output into something Scryfall's fuzzy search can use. */
-export function cleanTitle(text: string): string {
-  const firstLine = text
-    .split('\n')
-    .map((l) => l.trim())
-    .filter(Boolean)
-    .sort((a, b) => b.length - a.length)[0]
-  if (!firstLine) return ''
-  return firstLine
-    .replace(/[^A-Za-z' ,.-]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .replace(/^[\s'.,-]+|[\s'.,-]+$/g, '')
-    .trim()
+export function cropFooterBand(source: CanvasImageSource, srcW: number, srcH: number, frame: Frame) {
+  return cropRegion(source, srcW, srcH, frame, FOOTER, 1200, true)
+}
+
+export type TitleRead = { text: string; confidence: number }
+
+export async function readTitle(canvas: HTMLCanvasElement): Promise<TitleRead> {
+  const worker = await getTitleWorker()
+  const { data } = await worker.recognize(canvas)
+  return { text: cleanTitle(data.text), confidence: data.confidence }
+}
+
+/**
+ * Reads the footer and pulls out the set code and collector number, e.g.
+ * "0042/0281 U / DMU · EN" gives { set: 'dmu', number: '42' }. Returns null
+ * when either is missing, which is normal for older frames and promos.
+ */
+export async function readFooter(canvas: HTMLCanvasElement): Promise<FooterRead | null> {
+  const worker = await getFooterWorker()
+  const { data } = await worker.recognize(canvas)
+  return parseFooter(data.text)
 }

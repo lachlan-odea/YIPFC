@@ -79,6 +79,11 @@ export function namedExact(name: string, set?: string): Promise<ScryfallCard> {
   return request<ScryfallCard>(`/cards/named?exact=${encodeURIComponent(name)}${setParam}`)
 }
 
+/** One exact printing by set code and collector number, as printed in a card's footer. */
+export function bySetNumber(set: string, number: string): Promise<ScryfallCard> {
+  return request<ScryfallCard>(`/cards/${encodeURIComponent(set.toLowerCase())}/${encodeURIComponent(number)}`)
+}
+
 /** All printings of a card, newest first, for picking the exact version you own. */
 export function printings(name: string): Promise<ScryfallCard[]> {
   const q = encodeURIComponent(`!"${name}" game:paper`)

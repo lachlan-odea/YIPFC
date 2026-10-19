@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { autocomplete, collection, namedFuzzy, type ScryfallCard } from '../lib/scryfall'
-import { cropTitleBand, readTitle, warmUp, type Frame } from '../lib/ocr'
-import { Icons, errorText } from './ui'
-import AddCardPanel from './AddCardPanel'
+import { usePool } from '../lib/store'
+import { bySetNumber, namedFuzzy, toPoolCard, type ScryfallCard } from '../lib/scryfall'
+import { cropFooterBand, cropTitleBand, readFooter, readTitle, warmUp, type Frame } from '../lib/ocr'
+import { scanFeedback, unlockAudio } from '../lib/feedback'
+import { errorText } from './ui'
+import ScanTray, { thumb, type ScanItem } from './ScanTray'
 
-// Card frame inside the 3:4 viewfinder, as fractions. Mirrors .viewfinder .frame CSS below.
+// Card frame inside the 3:4 viewfinder, as fractions. Mirrors .viewfinder .frame CSS.
 const FRAME_W = 0.72
 const FRAME: Frame = (() => {
   const w = FRAME_W
@@ -12,27 +14,39 @@ const FRAME: Frame = (() => {
   return { x: (1 - w) / 2, y: (1 - h) / 2, w, h }
 })()
 
-/** After adding a card, ignore that same name for this long so it is not re-scanned while being put down. */
-const SUPPRESS_MS = 5000
+/** Accept a single read outright when Tesseract is this sure of it; otherwise wait for two that agree. */
+const CONFIDENT = 80
+/** Minimum gap between two recognitions of anything. */
+const LOCK_GAP_MS = 1200
+/** The same card counts again only after this long AND after the frame has shown something else. */
+const SAME_CARD_MS = 1500
+/** How long the "got it" bubble stays up. */
+const FLASH_MS = 1800
 
-type Phase =
-  | { kind: 'live' }
-  | { kind: 'reading'; still: HTMLCanvasElement }
-  | { kind: 'choose'; still: HTMLCanvasElement; read: string; candidates: ScryfallCard[]; picked: ScryfallCard | null }
-  | { kind: 'nomatch'; still: HTMLCanvasElement; read: string }
+type Readout = { kind: 'idle' | 'reading' | 'checking'; text: string }
+type Flash = { id: number; card: ScryfallCard; count: number }
 
-type Readout = { kind: 'idle' | 'reading' | 'checking' | 'locked'; text: string }
+/**
+ * Live scanner. Hold cards up one after another: each one is recognised from
+ * its title, pinned to an exact printing from the footer when that can be
+ * read, added to the pool straight away, and listed underneath where the
+ * printing or quantity can be fixed. The camera never stops.
+ */
+export default function Scanner({ onDone }: { onDone?: () => void }) {
+  const pool = usePool()
+  const poolRef = useRef(pool)
+  poolRef.current = pool
 
-export default function Scanner() {
   const videoRef = useRef<HTMLVideoElement>(null)
-  const previewRef = useRef<HTMLCanvasElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
-  const suppressRef = useRef<{ name: string; until: number } | null>(null)
   const [camera, setCamera] = useState<'starting' | 'on' | 'off'>('starting')
   const [camError, setCamError] = useState<string | null>(null)
-  const [phase, setPhase] = useState<Phase>({ kind: 'live' })
   const [readout, setReadout] = useState<Readout>({ kind: 'idle', text: '' })
-  const [added, setAdded] = useState(0)
+  const [flash, setFlash] = useState<Flash | null>(null)
+  const [items, setItems] = useState<ScanItem[]>([])
+  const [paused, setPaused] = useState(false)
+
+  // ---- camera ------------------------------------------------------------
 
   const stop = useCallback(() => {
     streamRef.current?.getTracks().forEach((t) => t.stop())
@@ -72,17 +86,19 @@ export default function Scanner() {
   useEffect(() => {
     warmUp()
     void start()
-    return stop
+    document.addEventListener('pointerdown', unlockAudio, { once: true })
+    return () => {
+      stop()
+      document.removeEventListener('pointerdown', unlockAudio)
+    }
   }, [start, stop])
 
-  // Paint the frozen still into the preview canvas whenever we are not live.
+  // Pause the loop while the page is hidden; the camera keeps its permission.
   useEffect(() => {
-    if (phase.kind === 'live' || !previewRef.current) return
-    const c = previewRef.current
-    c.width = phase.still.width
-    c.height = phase.still.height
-    c.getContext('2d')!.drawImage(phase.still, 0, 0)
-  }, [phase])
+    const onVis = () => setPaused(document.hidden)
+    document.addEventListener('visibilitychange', onVis)
+    return () => document.removeEventListener('visibilitychange', onVis)
+  }, [])
 
   /** Grab the visible 3:4 region of the video as a canvas (object-fit: cover equivalent). */
   function captureStill(): HTMLCanvasElement | null {
@@ -101,40 +117,81 @@ export default function Scanner() {
     return canvas
   }
 
-  /** Freeze on a still and resolve it to a card. `known` skips OCR when the live loop already matched. */
-  async function identify(still: HTMLCanvasElement, frame: Frame, known?: { read: string; best: ScryfallCard }) {
-    setPhase({ kind: 'reading', still })
+  // ---- pool bookkeeping --------------------------------------------------
+
+  const patch = (key: string, p: Partial<ScanItem>) =>
+    setItems((list) => list.map((i) => (i.key === key ? { ...i, ...p } : i)))
+
+  /** Add `n` copies of a printing to the pool and reflect it in the tray. */
+  async function addToPool(card: ScryfallCard, n: number) {
     try {
-      let read = known?.read
-      if (read === undefined) {
-        const band = cropTitleBand(still, still.width, still.height, frame)
-        read = await readTitle(band)
-      }
-      if (read.length < 3) {
-        setPhase({ kind: 'nomatch', still, read })
-        return
-      }
-      const candidates = await findCandidates(read, known?.best)
-      if (candidates.length === 0) setPhase({ kind: 'nomatch', still, read })
-      else setPhase({ kind: 'choose', still, read, candidates, picked: candidates[0] })
+      const [row] = await poolRef.current.addCards([toPoolCard(card, n)])
+      patch(card.id, { status: 'added', poolId: row?.id, poolQty: row?.quantity, error: undefined })
     } catch (e) {
-      setPhase({ kind: 'nomatch', still, read: errorText(e) })
+      patch(card.id, { status: 'error', error: errorText(e) })
     }
   }
 
-  function freeze(still: HTMLCanvasElement, known?: { read: string; best: ScryfallCard }) {
-    stop()
-    setCamera('off')
-    void identify(still, FRAME, known)
+  /** A recognised card: bump the tray row (or make one) and add a copy to the pool. */
+  function recognised(card: ScryfallCard) {
+    let count = 1
+    setItems((list) => {
+      const existing = list.find((i) => i.key === card.id)
+      if (existing) {
+        count = existing.scanned + 1
+        const row: ScanItem = { ...existing, scanned: count, status: 'adding' }
+        return [row, ...list.filter((i) => i.key !== card.id)]
+      }
+      return [{ key: card.id, card, scanned: 1, status: 'adding' }, ...list]
+    })
+    const id = Date.now()
+    setFlash({ id, card, count })
+    setTimeout(() => setFlash((f) => (f?.id === id ? null : f)), FLASH_MS)
+    scanFeedback(count > 1 ? 'again' : 'added')
+    void addToPool(card, 1)
   }
 
-  // Live scanning: read the title band over and over while the camera is on.
-  // A card locks in when two consecutive reads agree and Scryfall knows the name.
-  const live = phase.kind === 'live'
+  async function setQty(item: ScanItem, qty: number) {
+    if (!item.poolId) return
+    if (qty <= 0) return remove(item)
+    try {
+      await poolRef.current.updateCard(item.poolId, { quantity: qty })
+      patch(item.key, { poolQty: qty })
+    } catch (e) {
+      patch(item.key, { status: 'error', error: errorText(e) })
+    }
+  }
+
+  /** Take this session's copies back out; keep any the owner had before. */
+  async function remove(item: ScanItem) {
+    setItems((list) => list.filter((i) => i.key !== item.key))
+    if (!item.poolId || item.poolQty === undefined) return
+    const left = item.poolQty - item.scanned
+    try {
+      if (left > 0) await poolRef.current.updateCard(item.poolId, { quantity: left })
+      else await poolRef.current.removeCard(item.poolId)
+    } catch {
+      /* the tray row is gone; the pool screen shows the truth */
+    }
+  }
+
+  async function changePrinting(item: ScanItem, card: ScryfallCard) {
+    await remove(item)
+    setItems((list) => [{ key: card.id, card, scanned: item.scanned, status: 'adding' }, ...list.filter((i) => i.key !== card.id)])
+    await addToPool(card, item.scanned)
+  }
+
+  // ---- the live loop -------------------------------------------------------
+
+  const live = camera === 'on' && !paused
   useEffect(() => {
-    if (!live || camera !== 'on') return
+    if (!live) return
     let cancelled = false
     let lastKey = ''
+    let lastLockAt = 0
+    let lastLockName = ''
+    let lastLockKey = ''
+    let seenOtherSinceLock = true
     const failed = new Set<string>()
     setReadout({ kind: 'idle', text: '' })
 
@@ -145,47 +202,69 @@ export default function Scanner() {
           await sleep(150)
           continue
         }
-        let read: string
+        let text: string
+        let confidence: number
         try {
-          read = await readTitle(cropTitleBand(still, still.width, still.height, FRAME))
+          ;({ text, confidence } = await readTitle(cropTitleBand(still, still.width, still.height, FRAME)))
         } catch {
           await sleep(300)
           continue
         }
         if (cancelled) return
-        const key = normalize(read)
-        const stable = key.length >= 4 && key === lastKey
-        lastKey = key
-        setReadout(read ? { kind: 'reading', text: read } : { kind: 'idle', text: '' })
-        if (!stable || failed.has(key)) continue
 
-        setReadout({ kind: 'checking', text: read })
+        const key = normalize(text)
+        const stable = key.length >= 4 && key === lastKey
+        const confident = key.length >= 6 && confidence >= CONFIDENT
+        lastKey = key
+        if (key !== lastLockKey) seenOtherSinceLock = true
+        setReadout(text ? { kind: 'reading', text } : { kind: 'idle', text: '' })
+
+        if ((!stable && !confident) || failed.has(key)) continue
+        if (Date.now() - lastLockAt < LOCK_GAP_MS) continue
+
+        setReadout({ kind: 'checking', text })
+        let card: ScryfallCard
         try {
-          const best = await namedFuzzy(read)
-          if (cancelled) return
-          const sup = suppressRef.current
-          if (sup && sup.name === best.name && Date.now() < sup.until) continue
-          setReadout({ kind: 'locked', text: best.name })
-          freeze(still, { read, best })
-          return
+          card = await namedFuzzy(text)
         } catch {
-          if (cancelled) return
           failed.add(key)
+          continue
         }
+        if (cancelled) return
+
+        // Same card still in the frame: do not count it again until it has
+        // left the frame (or another card was shown) and a moment has passed.
+        if (card.name === lastLockName && (!seenOtherSinceLock || Date.now() - lastLockAt < SAME_CARD_MS)) continue
+
+        lastLockAt = Date.now()
+        lastLockName = card.name
+        lastLockKey = key
+        seenOtherSinceLock = false
+
+        // Pin the exact printing from the footer when it can be read. This
+        // costs one more OCR pass and one request, so it only runs on a lock.
+        try {
+          const footer = await readFooter(cropFooterBand(still, still.width, still.height, FRAME))
+          if (footer) {
+            const exact = await bySetNumber(footer.set, footer.number)
+            if (exact.name.toLowerCase() === card.name.toLowerCase()) card = exact
+          }
+        } catch {
+          /* unreadable footer or no such printing: keep Scryfall's default */
+        }
+        if (cancelled) return
+        recognised(card)
       }
     }
     void loop()
     return () => {
       cancelled = true
     }
-    // captureStill/freeze only touch refs and setters, so they need not be deps.
+    // captureStill/recognised only touch refs and setters.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [live, camera])
+  }, [live])
 
-  function snap() {
-    const still = captureStill()
-    if (still) freeze(still)
-  }
+  // ---- photo fallback for browsers with no live camera -----------------------
 
   async function fromFile(file: File) {
     const bmp = await createImageBitmap(file)
@@ -193,62 +272,79 @@ export default function Scanner() {
     canvas.width = bmp.width
     canvas.height = bmp.height
     canvas.getContext('2d')!.drawImage(bmp, 0, 0)
-    stop()
-    setCamera('off')
-    // A photo straight from the camera roll: assume the card fills the shot.
-    void identify(canvas, { x: 0.02, y: 0.02, w: 0.96, h: 0.96 })
+    const full: Frame = { x: 0.02, y: 0.02, w: 0.96, h: 0.96 }
+    setReadout({ kind: 'checking', text: 'photo' })
+    try {
+      const { text } = await readTitle(cropTitleBand(canvas, canvas.width, canvas.height, full))
+      let card = await namedFuzzy(text)
+      try {
+        const footer = await readFooter(cropFooterBand(canvas, canvas.width, canvas.height, full))
+        if (footer) {
+          const exact = await bySetNumber(footer.set, footer.number)
+          if (exact.name.toLowerCase() === card.name.toLowerCase()) card = exact
+        }
+      } catch {
+        /* keep default printing */
+      }
+      recognised(card)
+      setReadout({ kind: 'idle', text: '' })
+    } catch (e) {
+      setCamError(`Could not read that photo: ${errorText(e)}`)
+      setReadout({ kind: 'idle', text: '' })
+    }
   }
-
-  function again(justAdded?: string) {
-    suppressRef.current = justAdded ? { name: justAdded, until: Date.now() + SUPPRESS_MS } : null
-    setPhase({ kind: 'live' })
-    void start()
-  }
-
-  const frameState = readout.kind === 'locked' ? 'locked' : readout.kind === 'checking' ? 'checking' : ''
 
   return (
     <div className="stack">
       <div className="viewfinder">
-        <video ref={videoRef} playsInline muted hidden={!live} />
-        <canvas ref={previewRef} className="preview" hidden={live} />
-        {live && camera === 'on' && (
+        <video ref={videoRef} playsInline muted />
+        {camera === 'on' && (
           <>
             <div
-              className={`frame ${frameState}`}
+              className={`frame ${readout.kind === 'checking' ? 'checking' : ''} ${flash ? 'locked' : ''}`}
               style={{ left: `${FRAME.x * 100}%`, top: `${FRAME.y * 100}%`, width: `${FRAME.w * 100}%`, height: `${FRAME.h * 100}%` }}
             />
-            <div className="hint">
-              {readout.kind === 'idle' && 'Hold a card in the frame, name inside the gold box'}
-              {readout.kind === 'reading' && (
+            <div className="hint top">
+              {paused && 'Paused'}
+              {!paused && readout.kind === 'idle' && 'Hold a card in the frame'}
+              {!paused && readout.kind === 'reading' && (
                 <>
                   Reading <span className="readout">{readout.text}</span>
                 </>
               )}
-              {readout.kind === 'checking' && (
+              {!paused && readout.kind === 'checking' && (
                 <>
                   Checking <span className="readout">{readout.text}</span>…
                 </>
               )}
-              {readout.kind === 'locked' && (
-                <>
-                  Found <span className="readout">{readout.text}</span>
-                </>
-              )}
             </div>
+            {flash && (
+              <div className="scan-flash" key={flash.id} role="status">
+                <img src={thumb(flash.card)} alt="" />
+                <span>
+                  <strong>{flash.card.name}</strong>
+                  <span className="small">
+                    {flash.card.set.toUpperCase()} #{flash.card.collector_number}
+                    {flash.count > 1 ? ` · ×${flash.count}` : ' · Added'}
+                  </span>
+                </span>
+              </div>
+            )}
           </>
         )}
-        {live && camera === 'starting' && <div className="hint">Starting camera…</div>}
-        {live && camera === 'off' && camError && (
+        {camera === 'starting' && <div className="hint">Starting camera…</div>}
+        {camera === 'off' && camError && (
           <div className="hint" style={{ bottom: '45%', padding: '0 24px' }}>
             {camError}
           </div>
         )}
-        {phase.kind === 'reading' && <div className="hint">Looking it up…</div>}
       </div>
 
-      {live && (
-        <div className="row" style={{ justifyContent: 'center', gap: 24 }}>
+      {camera === 'off' && (
+        <div className="row" style={{ justifyContent: 'center', gap: 16 }}>
+          <button className="btn" onClick={() => void start()}>
+            Try the camera again
+          </button>
           <label className="btn quiet" style={{ cursor: 'pointer' }}>
             Photo
             <input
@@ -259,69 +355,26 @@ export default function Scanner() {
               onChange={(e) => e.target.files?.[0] && void fromFile(e.target.files[0])}
             />
           </label>
-          <button className="shutter" onClick={snap} disabled={camera !== 'on'} aria-label="Scan now">
-            <Icons.camera />
-          </button>
-          <span style={{ width: 84 }} className="small faint">
-            {added > 0 ? `${added} added` : ''}
-          </span>
         </div>
       )}
-      {live && camera === 'on' && (
+
+      {camera === 'on' && items.length === 0 && (
         <p className="small muted" style={{ textAlign: 'center', margin: 0 }}>
-          Scanning happens on its own. The button is there if it is being stubborn.
+          Each card is added as soon as it is recognised. Swap to the next one when you feel the buzz.
         </p>
       )}
 
-      {phase.kind === 'nomatch' && (
-        <div className="stack">
-          <div className="notice warn">
-            Could not match a card{phase.read ? ` from “${phase.read}”` : ''}. Hold the phone steadier, fill the frame, and avoid glare on the name.
-          </div>
-          <button className="btn primary block" onClick={() => again()}>
-            Try again
-          </button>
-        </div>
-      )}
-
-      {phase.kind === 'choose' && (
-        <div className="stack">
-          {phase.candidates.length > 1 && (
-            <>
-              <p className="small muted">
-                Read “{phase.read}”. Pick the right card:
-              </p>
-              <div className="candidates">
-                {phase.candidates.map((c) => (
-                  <button
-                    key={c.id}
-                    className="candidate"
-                    aria-pressed={phase.picked?.id === c.id}
-                    onClick={() => setPhase({ ...phase, picked: c })}
-                  >
-                    <img src={c.image_uris?.small ?? c.card_faces?.[0]?.image_uris?.small} alt="" />
-                    <span>{c.name}</span>
-                  </button>
-                ))}
-              </div>
-            </>
-          )}
-          {phase.picked && (
-            <AddCardPanel
-              card={phase.picked}
-              onChangePrinting={(c) => setPhase({ ...phase, picked: c })}
-              onAdded={() => {
-                setAdded((n) => n + 1)
-                again(phase.picked?.name)
-              }}
-              addLabel="Add and scan the next one"
-            />
-          )}
-          <button className="btn quiet block" onClick={() => again(phase.picked?.name)}>
-            Not these. Scan again
-          </button>
-        </div>
-      )}
+      <ScanTray
+        items={items}
+        onSetQty={(i, q) => void setQty(i, q)}
+        onChangePrinting={(i, c) => void changePrinting(i, c)}
+        onRemove={(i) => void remove(i)}
+        onRetry={(i) => {
+          patch(i.key, { status: 'adding', error: undefined })
+          void addToPool(i.card, 1)
+        }}
+        onDone={onDone}
+      />
     </div>
   )
 }
@@ -333,30 +386,4 @@ function normalize(s: string) {
 
 function sleep(ms: number) {
   return new Promise((r) => setTimeout(r, ms))
-}
-
-/**
- * Fuzzy match first (or reuse one the live loop already fetched); then
- * autocomplete alternatives so a misread letter is one tap to fix.
- */
-async function findCandidates(read: string, best?: ScryfallCard): Promise<ScryfallCard[]> {
-  const out: ScryfallCard[] = []
-  const seen = new Set<string>()
-  if (!best) {
-    try {
-      best = await namedFuzzy(read)
-    } catch {
-      /* no fuzzy match, fall through to autocomplete */
-    }
-  }
-  if (best) {
-    out.push(best)
-    seen.add(best.name)
-  }
-  const alternatives = (await autocomplete(read).catch(() => [])).filter((n) => !seen.has(n)).slice(0, 5)
-  if (alternatives.length) {
-    const { found } = await collection(alternatives.map((name) => ({ name })))
-    for (const c of found) if (!seen.has(c.name)) out.push(c)
-  }
-  return out
 }
