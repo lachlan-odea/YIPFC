@@ -566,9 +566,14 @@ main {
   gap: 3px;
 }
 
-.pip {
+.pip,
+img.pip,
+.tile img.pip,
+.detail img.pip {
   width: 14px;
   height: 14px;
+  object-fit: contain;
+  box-shadow: none;
   border-radius: 50%;
   box-shadow: -1px 1px 0 rgba(0, 0, 0, 0.55);
   vertical-align: middle;
@@ -639,7 +644,7 @@ main {
   box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06) inset, 0 6px 14px -8px rgba(0, 0, 0, 0.7);
 }
 
-.tile img {
+.tile .art img {
   width: 100%;
   height: 100%;
   object-fit: cover;
@@ -786,7 +791,7 @@ main {
   gap: 18px;
 }
 
-.detail img {
+.detail > img {
   width: 100%;
   border-radius: var(--radius-card);
   box-shadow: 0 10px 24px -10px rgba(0, 0, 0, 0.8);
