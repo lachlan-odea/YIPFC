@@ -150,7 +150,8 @@ src/
   lib/        Scryfall client, list parser, OCR, and the two data stores
   screens/    Pool, Add, Loans, You, and the first-run Welcome
   components/ Scanner, SearchAdd, ImportList, CardDetail, shared UI bits
-scripts/      make-icons.mjs renders the PNG icons from the SVG motif
+brand/        Source artwork: the goblin lock-up and the wordmark
+scripts/      make-icons.mjs renders icons, favicon and in-app brand PNGs from brand/
 firestore.rules      Firestore security rules (paste into the console or deploy with the CLI)
 firebase.json        Points the Firebase CLI at the rules file
 ```

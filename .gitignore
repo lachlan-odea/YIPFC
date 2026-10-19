@@ -6,3 +6,4 @@ dev-dist
 !.env.example
 public/icons/*.png
 dist-tests
+public/brand/*.png

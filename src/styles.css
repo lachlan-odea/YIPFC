@@ -1,19 +1,31 @@
+/*
+ * Brand palette: 80s vaporwave, lifted from the YIPFC goblin logo.
+ * Surfaces are deep purple-black, text is the logo's cream, the primary
+ * accent is hot pink with cyan as the secondary and lime for "yes/locked".
+ * Token names predate the rebrand: --felt is the surface scale, --gold the
+ * primary accent and --copper the secondary.
+ */
 :root {
-  --felt: #15231d;
-  --felt-2: #1c2f27;
-  --felt-3: #254139;
-  --felt-4: #2f5147;
-  --line: rgba(239, 233, 220, 0.14);
-  --line-strong: rgba(239, 233, 220, 0.28);
-  --ink: #efe9dc;
-  --ink-2: rgba(239, 233, 220, 0.68);
-  --ink-3: rgba(239, 233, 220, 0.44);
-  --gold: #d4a84b;
-  --gold-2: #e9c875;
-  --gold-ink: #241a06;
-  --copper: #b8683d;
-  --copper-ink: #fff2e8;
-  --rose: #c75c5c;
+  --felt: #120b1d;
+  --felt-2: #1a1029;
+  --felt-3: #261741;
+  --felt-4: #35205a;
+  --line: rgba(251, 233, 192, 0.14);
+  --line-strong: rgba(251, 233, 192, 0.3);
+  --ink: #fbe9c0;
+  --ink-2: rgba(251, 233, 192, 0.7);
+  --ink-3: rgba(251, 233, 192, 0.46);
+  --gold: #ff2fa4;
+  --gold-2: #ff7ad0;
+  --gold-ink: #2b0618;
+  --copper: #28d7f0;
+  --copper-ink: #042029;
+  --rose: #ff4d6d;
+  --pink: #ff2fa4;
+  --cyan: #28d7f0;
+  --lime: #8ee63a;
+  --violet: #8a2be2;
+  --cream: #fbe9c0;
   --w: #efe3b8;
   --u: #3f8fd1;
   --b: #8a7d94;
@@ -44,7 +56,11 @@ body {
 }
 
 body {
-  background-image: radial-gradient(ellipse at 50% -20%, rgba(239, 233, 220, 0.06), transparent 60%);
+  background-image:
+    radial-gradient(ellipse 70% 40% at 15% -10%, rgba(255, 47, 164, 0.22), transparent 70%),
+    radial-gradient(ellipse 60% 40% at 100% 100%, rgba(40, 215, 240, 0.14), transparent 70%),
+    radial-gradient(ellipse at 50% -20%, rgba(251, 233, 192, 0.05), transparent 60%);
+  background-attachment: fixed;
   min-height: 100dvh;
 }
 
@@ -103,10 +119,17 @@ p {
 }
 
 .wordmark {
-  font-weight: 700;
-  font-size: 20px;
-  letter-spacing: -0.02em;
-  font-variation-settings: 'opsz' 96, 'wdth' 90;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.wordmark img {
+  display: block;
+  height: 40px;
+  width: auto;
+  filter: drop-shadow(0 2px 6px rgba(255, 47, 164, 0.35));
 }
 
 .wordmark small {
@@ -116,6 +139,21 @@ p {
   letter-spacing: 0;
   color: var(--ink-3);
   font-variation-settings: 'opsz' 12, 'wdth' 100;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.brand-hero {
+  display: block;
+  width: 180px;
+  height: 180px;
+  margin: 0 auto;
+  border-radius: 28px;
+  box-shadow:
+    0 0 0 2px rgba(251, 233, 192, 0.25),
+    0 18px 40px -16px rgba(255, 47, 164, 0.55),
+    0 0 60px -10px rgba(40, 215, 240, 0.35);
 }
 
 .mode-pill {
@@ -794,12 +832,12 @@ main {
 }
 
 .viewfinder .frame.locked {
-  border-color: #7fd49a;
+  border-color: var(--lime);
 }
 
 .viewfinder .frame.locked::after {
-  border: 2px solid #7fd49a;
-  background: rgba(127, 212, 154, 0.25);
+  border: 2px solid var(--lime);
+  background: rgba(142, 230, 58, 0.25);
 }
 
 .viewfinder .hint .readout {
@@ -823,8 +861,8 @@ main {
   gap: 12px;
   padding: 8px 12px 8px 8px;
   border-radius: 12px;
-  background: rgba(10, 20, 15, 0.88);
-  border: 1px solid rgba(127, 212, 154, 0.6);
+  background: rgba(18, 11, 29, 0.9);
+  border: 1px solid rgba(142, 230, 58, 0.6);
   color: var(--ink);
   animation: scan-flash-in 180ms ease-out;
 }
@@ -841,7 +879,7 @@ main {
 }
 
 .scan-flash .small {
-  color: #7fd49a;
+  color: var(--lime);
 }
 
 @keyframes scan-flash-in {

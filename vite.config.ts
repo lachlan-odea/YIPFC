@@ -11,13 +11,13 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['icons/icon.svg'],
+      includeAssets: ['brand/*.png', 'icons/apple-touch-180.png'],
       manifest: {
         name: 'Yes I pay for cardboard',
         short_name: 'YIPFC',
         description: 'The shared pile of spare Commander cards your pod can borrow from each other.',
-        theme_color: '#15231d',
-        background_color: '#15231d',
+        theme_color: '#120b1d',
+        background_color: '#120b1d',
         display: 'standalone',
         orientation: 'portrait',
         start_url: base,

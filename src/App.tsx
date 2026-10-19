@@ -47,7 +47,7 @@ export default function App() {
       <div className="app">
         <header className="topbar">
           <div className="wordmark">
-            YIPFC
+            <img src={`${import.meta.env.BASE_URL}brand/wordmark-sm.png`} alt="Yes I pay for cardboard" />
             <small>{pool.cards.reduce((n, c) => n + c.quantity, 0)} spare cards across {pool.players.length} players</small>
           </div>
           <span className={`mode-pill ${pool.mode}`} title={pool.mode === 'shared' ? 'Synced with your pod' : 'Only on this device'}>

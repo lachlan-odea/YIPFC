@@ -25,7 +25,7 @@ export default function Welcome() {
     <div className="app">
       <main style={{ display: 'grid', placeItems: 'center', minHeight: '80dvh' }}>
         <form onSubmit={submit} className="stack" style={{ width: '100%', maxWidth: 420 }}>
-          <img src={`${import.meta.env.BASE_URL}icons/icon.svg`} alt="" width="72" height="72" style={{ borderRadius: 16 }} />
+          <img className="brand-hero" src={`${import.meta.env.BASE_URL}brand/logo.png`} alt="YIPFC: Yes I pay for cardboard" />
           <h1 className="title">Who are you in the pod?</h1>
           <p className="subtitle">
             Your name goes on the cards you add and the ones you borrow. Already joined on another phone? Type the same
