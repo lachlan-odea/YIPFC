@@ -118,7 +118,7 @@ function imageOf(card: ScryfallCard, size: 'small' | 'normal'): string {
   return card.image_uris?.[size] ?? card.card_faces?.[0]?.image_uris?.[size] ?? ''
 }
 
-export function toPoolCard(card: ScryfallCard, quantity = 1, notes = ''): NewPoolCard {
+export function toPoolCard(card: ScryfallCard, quantity = 1, notes = '', foil = false): NewPoolCard {
   const face = card.card_faces?.[0]
   return {
     scryfall_id: card.id,
@@ -136,5 +136,6 @@ export function toPoolCard(card: ScryfallCard, quantity = 1, notes = ''): NewPoo
     oracle_text: card.oracle_text ?? card.card_faces?.map((f) => f.oracle_text).filter(Boolean).join('\n//\n') ?? '',
     quantity,
     notes,
+    foil,
   }
 }

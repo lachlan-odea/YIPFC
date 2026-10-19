@@ -15,8 +15,9 @@ everyone's cards together, sorted by name.
 - Filter by owner, set, card type, colour identity (including colourless) and
   whether the card is free to borrow right now.
 - Tap a card to see its printing, the spare copies you have, and who owns it.
-- Change the printing or quantity of your own cards, or take a card out of the
-  pool.
+- Change the printing, foil or non-foil finish, quantity and note of your own
+  cards, or take a card out of the pool. Foil and non-foil copies of the same
+  printing are listed separately and priced separately.
 - Tick **Show value in AUD** to see each card's current price. Prices come from
   Scryfall in US dollars and are converted at the European Central Bank's daily
   rate; both are refreshed once a day. A ✦ marks a card where only the foil

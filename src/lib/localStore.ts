@@ -58,7 +58,7 @@ export class LocalStore implements PoolStore {
     const added: PoolCard[] = []
     for (const c of cards) {
       // Same owner + same printing: bump quantity rather than duplicate the row.
-      const dup = this.snap.cards.find((x) => x.owner_id === ownerId && x.scryfall_id === c.scryfall_id)
+      const dup = this.snap.cards.find((x) => x.owner_id === ownerId && x.scryfall_id === c.scryfall_id && !!x.foil === !!c.foil)
       if (dup) {
         dup.quantity += c.quantity
         added.push(dup)
@@ -81,6 +81,22 @@ export class LocalStore implements PoolStore {
     this.snap.cards = this.snap.cards.filter((c) => c.id !== id)
     this.snap.loans = this.snap.loans.filter((l) => l.card_id !== id)
     await this.commit()
+  }
+
+  async replaceCard(id: string, next: NewPoolCard): Promise<PoolCard> {
+    const old = this.snap.cards.find((c) => c.id === id)
+    if (!old) throw new Error('That card is no longer in the pool.')
+    const twin = this.snap.cards.find((x) => x.id !== id && x.owner_id === old.owner_id && x.scryfall_id === next.scryfall_id && !!x.foil === !!next.foil)
+    let result: PoolCard
+    if (twin) {
+      result = { ...twin, quantity: twin.quantity + next.quantity }
+      this.snap.cards = this.snap.cards.filter((c) => c.id !== id).map((c) => (c.id === twin.id ? result : c))
+    } else {
+      result = { ...old, ...next }
+      this.snap.cards = this.snap.cards.map((c) => (c.id === id ? result : c))
+    }
+    await this.commit()
+    return result
   }
 
   async createLoan(cardId: string, borrowerId: string): Promise<Loan> {

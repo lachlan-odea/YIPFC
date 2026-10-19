@@ -55,7 +55,7 @@ export default function ImportList({ onDone }: { onDone: () => void }) {
     const ready = rows!.filter((r) => r.card && r.quantity > 0)
     setBusy(`Adding ${ready.length} cards…`)
     try {
-      await pool.addCards(ready.map((r) => toPoolCard(r.card!, r.quantity)))
+      await pool.addCards(ready.map((r) => toPoolCard(r.card!, r.quantity, '', !!r.line.foil)))
       toast(`Added ${ready.reduce((n, r) => n + r.quantity, 0)} cards to the pool`)
       setRows(null)
       setText('')

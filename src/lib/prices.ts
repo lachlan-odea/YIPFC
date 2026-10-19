@@ -8,14 +8,21 @@ import { collection } from './scryfall'
  */
 
 const RATE_KEY = 'yipfc/aud-rate/v1'
-const PRICE_KEY = 'yipfc/prices/v1'
+const PRICE_KEY = 'yipfc/prices/v2'
 const DAY = 24 * 60 * 60 * 1000
 
 export type Price = {
-  /** Scryfall's USD price for this printing, non-foil when available. */
-  usd: number
-  /** True when only the foil price was available. */
-  foil: boolean
+  /** Scryfall's USD prices for this printing, by finish; null when not listed. */
+  usd: number | null
+  usd_foil: number | null
+}
+
+/** The AUD value of one copy, preferring the card's own finish and falling back to the other. */
+export function audFor(p: Price | null | undefined, foil: boolean, rate: number): { aud: number; usedFoil: boolean } | null {
+  if (!p) return null
+  const pick = foil ? (p.usd_foil ?? p.usd) : (p.usd ?? p.usd_foil)
+  if (pick === null) return null
+  return { aud: pick * rate, usedFoil: foil ? p.usd_foil !== null : p.usd === null }
 }
 
 type RateCache = { rate: number; date: string; fetched: number }
@@ -66,8 +73,8 @@ export async function usdPrices(ids: string[]): Promise<Record<string, Price | n
     for (const id of missing) got[id] = null
     for (const c of found) {
       const usd = num(c.prices?.usd)
-      const foil = num(c.prices?.usd_foil)
-      got[c.id] = usd !== null ? { usd, foil: false } : foil !== null ? { usd: foil, foil: true } : null
+      const usd_foil = num(c.prices?.usd_foil)
+      got[c.id] = usd !== null || usd_foil !== null ? { usd, usd_foil } : null
     }
     Object.assign(fresh, got)
     write(PRICE_KEY, { fetched: cache && Date.now() - cache.fetched < DAY ? cache.fetched : Date.now(), prices: fresh })

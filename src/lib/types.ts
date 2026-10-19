@@ -23,6 +23,8 @@ export type PoolCard = {
   oracle_text: string
   quantity: number
   notes: string
+  /** Foil copies are listed separately from non-foil ones of the same printing. */
+  foil: boolean
   created_at: string
 }
 
@@ -77,6 +79,8 @@ export interface PoolStore {
   addCards(ownerId: string, cards: NewPoolCard[]): Promise<PoolCard[]>
   updateCard(id: string, patch: Partial<Pick<PoolCard, 'quantity' | 'notes'>>): Promise<void>
   removeCard(id: string): Promise<void>
+  /** Swap a row for a different printing or finish, keeping owner, quantity and notes; merges into an existing matching row. */
+  replaceCard(id: string, next: NewPoolCard): Promise<PoolCard>
   createLoan(cardId: string, borrowerId: string): Promise<Loan>
   setLoanStatus(id: string, status: LoanStatus): Promise<void>
   /** Insert or replace a whole deck. */

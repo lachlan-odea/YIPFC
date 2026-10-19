@@ -31,6 +31,7 @@ type PoolContext = {
   addCards: (cards: NewPoolCard[]) => Promise<PoolCard[]>
   updateCard: PoolStore['updateCard']
   removeCard: PoolStore['removeCard']
+  replaceCard: PoolStore['replaceCard']
   requestLoan: (cardId: string) => Promise<void>
   setLoanStatus: (id: string, status: LoanStatus) => Promise<void>
   saveDeck: (deck: Deck) => Promise<void>
@@ -50,7 +51,8 @@ export function PoolProvider({ children }: { children: ReactNode }) {
   const refresh = useCallback(async () => {
     try {
       const s = await store.load()
-      setSnap({ players: [...s.players], cards: [...s.cards], loans: [...s.loans], decks: [...s.decks] })
+      // Rows written before the foil flag existed have no such field.
+      setSnap({ players: [...s.players], cards: s.cards.map((c) => ({ ...c, foil: !!c.foil })), loans: [...s.loans], decks: [...s.decks] })
       setError(null)
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
@@ -117,6 +119,11 @@ export function PoolProvider({ children }: { children: ReactNode }) {
       async removeCard(id) {
         await store.removeCard(id)
         await refresh()
+      },
+      async replaceCard(id, next) {
+        const row = await store.replaceCard(id, next)
+        await refresh()
+        return row
       },
       async requestLoan(cardId) {
         if (!me) throw new Error('Pick your name first.')

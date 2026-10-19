@@ -3,7 +3,7 @@ import { usePool } from '../lib/store'
 import type { PoolCard } from '../lib/types'
 import { Icons, Pip, Pips } from '../components/ui'
 import CardDetail from '../components/CardDetail'
-import { audRate, formatAud, usdPrices, type Price } from '../lib/prices'
+import { audFor as priceFor, audRate, formatAud, usdPrices, type Price } from '../lib/prices'
 
 const PRICES_KEY = 'yipfc/show-prices'
 
@@ -41,11 +41,8 @@ export default function PoolScreen() {
     }
   }, [showPrices, idKey])
 
-  const audFor = (c: PoolCard): number | null => {
-    if (!showPrices || !pricing) return null
-    const p = pricing.prices[c.scryfall_id]
-    return p ? p.usd * pricing.rate : null
-  }
+  const valueOf = (c: PoolCard) => (showPrices && pricing ? priceFor(pricing.prices[c.scryfall_id], c.foil, pricing.rate) : null)
+  const audFor = (c: PoolCard): number | null => valueOf(c)?.aud ?? null
 
 
   const filtered = useMemo(() => {
@@ -201,17 +198,17 @@ export default function PoolScreen() {
       ) : (
         <div className="grid">
           {shown.map((c) => (
-            <Tile key={c.id} card={c} aud={audFor(c)} foil={pricing?.prices[c.scryfall_id]?.foil} onOpen={() => setOpen(c)} />
+            <Tile key={c.id} card={c} aud={audFor(c)} foilPrice={valueOf(c)?.usedFoil} onOpen={() => setOpen(c)} />
           ))}
         </div>
       )}
 
-      {openCard && <CardDetail card={openCard} onClose={() => setOpen(null)} />}
+      {openCard && <CardDetail card={openCard} onClose={() => setOpen(null)} onReplaced={(next) => setOpen(next)} />}
     </>
   )
 }
 
-function Tile({ card, aud, foil, onOpen }: { card: PoolCard; aud: number | null; foil?: boolean; onOpen: () => void }) {
+function Tile({ card, aud, foilPrice, onOpen }: { card: PoolCard; aud: number | null; foilPrice?: boolean; onOpen: () => void }) {
   const pool = usePool()
   const loan = pool.activeLoanFor(card.id)
   const owner = pool.playerById(card.owner_id)
@@ -223,10 +220,11 @@ function Tile({ card, aud, foil, onOpen }: { card: PoolCard; aud: number | null;
       <div className="art">
         <img src={card.image_normal || card.image_small} alt="" loading="lazy" />
         {card.quantity > 1 && <span className="qty">×{card.quantity}</span>}
+        {card.foil && <span className="foil-tag" title="Foil">✦ Foil</span>}
         {aud !== null && (
-          <span className="price" title={foil ? 'Foil price; no non-foil price listed' : 'Scryfall price, converted to AUD'}>
+          <span className="price" title={foilPrice ? 'Foil price, converted to AUD' : 'Scryfall price, converted to AUD'}>
             {formatAud(aud)}
-            {foil ? ' ✦' : ''}
+            {foilPrice ? ' ✦' : ''}
           </span>
         )}
         {loan?.status === 'lent' && <span className="tag">{borrowerIsMe ? 'With you' : `With ${borrower?.name ?? 'someone'}`}</span>}

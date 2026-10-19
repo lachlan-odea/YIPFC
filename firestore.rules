@@ -38,6 +38,8 @@ service cloud.firestore {
       allow read: if isPod();
       allow create: if isPod()
         && cardId == request.resource.data.owner_id + '__' + request.resource.data.scryfall_id
+            + (request.resource.data.get('foil', false) == true ? '__foil' : '')
+        && (!('foil' in request.resource.data) || request.resource.data.foil is bool)
         && request.resource.data.name is string
         && request.resource.data.quantity is int
         && request.resource.data.quantity >= 0

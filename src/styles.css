@@ -718,6 +718,20 @@ img.pip,
   margin: 0;
 }
 
+.tile .foil-tag {
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: #1a1030;
+  background: linear-gradient(120deg, #ffd1f1, #c9f6ff 45%, #e6ffb0 75%, #ffd1f1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+
 .tile .name {
   font-size: 13px;
   font-weight: 600;

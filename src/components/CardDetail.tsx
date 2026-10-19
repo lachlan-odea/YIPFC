@@ -1,9 +1,20 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { usePool } from '../lib/store'
 import type { PoolCard } from '../lib/types'
 import { Pips, Sheet, Stepper, errorText, useToast } from './ui'
+import PrintingPicker from './PrintingPicker'
+import { toPoolCard, type ScryfallCard } from '../lib/scryfall'
 
-export default function CardDetail({ card, onClose }: { card: PoolCard; onClose: () => void }) {
+export default function CardDetail({
+  card,
+  onClose,
+  onReplaced,
+}: {
+  card: PoolCard
+  onClose: () => void
+  /** Called when the owner swaps printing or finish, which gives the row a new id. */
+  onReplaced?: (next: PoolCard) => void
+}) {
   const pool = usePool()
   const toast = useToast()
   const loan = pool.activeLoanFor(card.id)
@@ -42,6 +53,7 @@ export default function CardDetail({ card, onClose }: { card: PoolCard; onClose:
           <div className="meta" style={{ marginTop: 10 }}>
             {mine ? 'Yours' : `${owner?.name ?? 'Unknown'}'s`}
             {card.quantity > 1 ? ` · ${card.quantity} spare` : ' · 1 spare'}
+            {card.foil ? ' · Foil' : ''}
           </div>
 
           <div style={{ marginTop: 14 }}>
@@ -98,6 +110,7 @@ export default function CardDetail({ card, onClose }: { card: PoolCard; onClose:
               <span className="muted">Spare copies</span>
               <Stepper value={card.quantity} onChange={(n) => void pool.updateCard(card.id, { quantity: n })} />
             </div>
+            <EditPrinting card={card} locked={!!loan} onReplaced={onReplaced ?? onClose} />
             <div className="field">
               <label htmlFor="notes">Note for borrowers</label>
               <input
@@ -129,4 +142,69 @@ export default function CardDetail({ card, onClose }: { card: PoolCard; onClose:
       {card.oracle_text && <p className="oracle">{card.oracle_text}</p>}
     </Sheet>
   )
+}
+
+/** Owner-only: pick a different printing or flip foil, then save. The row is replaced, so a loan must not be open. */
+function EditPrinting({ card, locked, onReplaced }: { card: PoolCard; locked: boolean; onReplaced: (next: PoolCard) => void }) {
+  const pool = usePool()
+  const toast = useToast()
+  const [printing, setPrinting] = useState<ScryfallCard>(() => asScryfall(card))
+  const [foil, setFoil] = useState(card.foil)
+  const [busy, setBusy] = useState(false)
+  useEffect(() => {
+    setPrinting(asScryfall(card))
+    setFoil(card.foil)
+  }, [card.id, card.foil]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const dirty = printing.id !== card.scryfall_id || foil !== card.foil
+
+  async function save() {
+    setBusy(true)
+    try {
+      const next = await pool.replaceCard(card.id, toPoolCard(printing, card.quantity, card.notes, foil))
+      toast(`Now ${next.set_code.toUpperCase()} #${next.collector_number}${foil ? ', foil' : ''}`)
+      onReplaced(next)
+    } catch (e) {
+      toast(errorText(e), 'error')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="stack" style={{ gap: 8 }}>
+      {locked ? (
+        <p className="small faint">Printing and finish can be changed once the loan on this card is closed.</p>
+      ) : (
+        <PrintingPicker name={card.name} selected={printing} onSelect={setPrinting} />
+      )}
+      <label className="check">
+        <input type="checkbox" checked={foil} disabled={locked} onChange={(e) => setFoil(e.target.checked)} />
+        Foil
+      </label>
+      {dirty && !locked && (
+        <button className="btn primary block" disabled={busy} onClick={() => void save()}>
+          {busy ? 'Saving…' : 'Save printing and finish'}
+        </button>
+      )}
+    </div>
+  )
+}
+
+/** Just enough of a Scryfall card for the printing picker to show the current choice. */
+function asScryfall(card: PoolCard): ScryfallCard {
+  return {
+    id: card.scryfall_id,
+    name: card.name,
+    set: card.set_code,
+    set_name: card.set_name,
+    collector_number: card.collector_number,
+    type_line: card.type_line,
+    mana_cost: card.mana_cost,
+    cmc: card.cmc,
+    color_identity: card.color_identity,
+    rarity: card.rarity,
+    oracle_text: card.oracle_text,
+    image_uris: { small: card.image_small, normal: card.image_normal },
+  }
 }

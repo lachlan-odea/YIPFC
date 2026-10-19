@@ -133,7 +133,7 @@ export class FirebaseStore implements PoolStore {
     for (let i = 0; i < cards.length; i += WRITE_CHUNK) {
       const chunk = cards.slice(i, i + WRITE_CHUNK)
       const rows = await runTransaction(this.db, async (tx) => {
-        const refs = chunk.map((c) => doc(this.db, 'cards', cardDocId(ownerId, c.scryfall_id)))
+        const refs = chunk.map((c) => doc(this.db, 'cards', cardDocId(ownerId, c.scryfall_id, c.foil)))
         // All reads must happen before any write inside a transaction.
         const snaps = await Promise.all(refs.map((r) => tx.get(r)))
         const out: PoolCard[] = []
@@ -168,6 +168,26 @@ export class FirebaseStore implements PoolStore {
     loans.docs.forEach((d) => batch.delete(d.ref))
     batch.delete(doc(this.db, 'cards', id))
     await batch.commit()
+  }
+
+  async replaceCard(id: string, next: NewPoolCard): Promise<PoolCard> {
+    const old = this.snap.cards.find((c) => c.id === id)
+    if (!old) throw new Error('That card is no longer in the pool.')
+    const oldRef = doc(this.db, 'cards', id)
+    const newRef = doc(this.db, 'cards', cardDocId(old.owner_id, next.scryfall_id, next.foil))
+    if (newRef.id === oldRef.id) return old
+    return runTransaction(this.db, async (tx) => {
+      const twin = (await tx.get(newRef)).data() as Omit<PoolCard, 'id'> | undefined
+      tx.delete(oldRef)
+      if (twin) {
+        const quantity = twin.quantity + next.quantity
+        tx.update(newRef, { quantity })
+        return { ...twin, id: newRef.id, quantity }
+      }
+      const row: Omit<PoolCard, 'id'> = { ...next, owner_id: old.owner_id, created_at: old.created_at }
+      tx.set(newRef, row)
+      return { ...row, id: newRef.id }
+    })
   }
 
   async createLoan(cardId: string, borrowerId: string): Promise<Loan> {
@@ -231,8 +251,8 @@ function connect(config: FirebaseConfig) {
   return connection
 }
 
-export function cardDocId(ownerId: string, scryfallId: string) {
-  return `${ownerId}__${scryfallId}`
+export function cardDocId(ownerId: string, scryfallId: string, foil = false) {
+  return `${ownerId}__${scryfallId}${foil ? '__foil' : ''}`
 }
 
 /** Firestore stores the id as the document key; keep it out of the fields. */

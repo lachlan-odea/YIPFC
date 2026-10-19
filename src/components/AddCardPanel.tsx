@@ -19,14 +19,15 @@ export default function AddCardPanel({
   const pool = usePool()
   const toast = useToast()
   const [qty, setQty] = useState(1)
+  const [foil, setFoil] = useState(false)
   const [busy, setBusy] = useState(false)
   const img = card.image_uris?.normal ?? card.card_faces?.[0]?.image_uris?.normal ?? ''
 
   async function add() {
     setBusy(true)
     try {
-      await pool.addCards([toPoolCard(card, qty)])
-      toast(`Added ${qty > 1 ? `${qty}× ` : ''}${card.name}`)
+      await pool.addCards([toPoolCard(card, qty, '', foil)])
+      toast(`Added ${qty > 1 ? `${qty}× ` : ''}${foil ? 'foil ' : ''}${card.name}`)
       onAdded()
     } catch (e) {
       toast(errorText(e), 'error')
@@ -52,6 +53,10 @@ export default function AddCardPanel({
             <span className="muted">Spare copies</span>
             <Stepper value={qty} onChange={setQty} />
           </div>
+          <label className="check">
+            <input type="checkbox" checked={foil} onChange={(e) => setFoil(e.target.checked)} />
+            Foil
+          </label>
         </div>
       </div>
       <button className="btn primary block" disabled={busy} onClick={add}>
