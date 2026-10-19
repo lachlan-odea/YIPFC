@@ -25,13 +25,30 @@ export const Icons = {
 /* ---------- mana pips ---------- */
 
 const ORDER = ['W', 'U', 'B', 'R', 'G']
+const SYMBOL_NAMES: Record<string, string> = { W: 'white', U: 'blue', B: 'black', R: 'red', G: 'green', C: 'colourless' }
 
-export function Pips({ identity }: { identity: string[] }) {
+/** One mana symbol, Scryfall's official SVG (cached by the service worker after first use). */
+export function Pip({ c, size = 14 }: { c: string; size?: number }) {
+  return (
+    <img
+      className="pip"
+      src={`https://svgs.scryfall.io/card-symbols/${c}.svg`}
+      alt={SYMBOL_NAMES[c] ?? c}
+      width={size}
+      height={size}
+      loading="lazy"
+      draggable={false}
+    />
+  )
+}
+
+/** A card's colour identity as pips, in WUBRG order; colourless shows the {C} symbol. */
+export function Pips({ identity, size }: { identity: string[]; size?: number }) {
   const list = identity.length ? ORDER.filter((c) => identity.includes(c)) : ['C']
   return (
-    <span className="pips" aria-label={identity.length ? identity.join(' ') : 'colorless'}>
+    <span className="pips" aria-label={identity.length ? identity.join(' ') : 'colourless'}>
       {list.map((c) => (
-        <i key={c} className={`pip ${c}`} />
+        <Pip key={c} c={c} size={size} />
       ))}
     </span>
   )

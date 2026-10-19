@@ -42,7 +42,7 @@ export default defineConfig({
           },
           {
             // Card images: cache first, they never change for a given printing.
-            urlPattern: /^https:\/\/cards\.scryfall\.io\/.*/i,
+            urlPattern: /^https:\/\/(cards|svgs)\.scryfall\.io\/.*/i,
             handler: 'CacheFirst',
             options: {
               cacheName: 'scryfall-images',

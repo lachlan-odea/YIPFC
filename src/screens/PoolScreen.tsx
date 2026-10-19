@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { usePool } from '../lib/store'
 import type { PoolCard } from '../lib/types'
-import { Icons, Pips } from '../components/ui'
+import { Icons, Pip, Pips } from '../components/ui'
 import CardDetail from '../components/CardDetail'
 import { audRate, formatAud, usdPrices, type Price } from '../lib/prices'
 
@@ -10,11 +10,14 @@ const PRICES_KEY = 'yipfc/show-prices'
 type Pricing = { rate: number; date: string; prices: Record<string, Price | null> }
 
 const COLORS = ['W', 'U', 'B', 'R', 'G'] as const
+const TYPES = ['Creature', 'Instant', 'Sorcery', 'Artifact', 'Enchantment', 'Planeswalker', 'Battle', 'Land'] as const
 
 export default function PoolScreen() {
   const pool = usePool()
   const [q, setQ] = useState('')
-  const [owner, setOwner] = useState<string | 'all' | 'others'>('all')
+  const [owner, setOwner] = useState<string | 'all'>('all')
+  const [set, setSet] = useState<string>('all')
+  const [type, setType] = useState<string>('all')
   const [onlyAvailable, setOnlyAvailable] = useState(false)
   const [colors, setColors] = useState<string[]>([])
   const [open, setOpen] = useState<PoolCard | null>(null)
@@ -47,10 +50,12 @@ export default function PoolScreen() {
     const needle = q.trim().toLowerCase()
     return pool.cards
       .filter((c) => {
-        if (owner === 'others' && c.owner_id === pool.me?.id) return false
-        if (owner !== 'all' && owner !== 'others' && c.owner_id !== owner) return false
+        if (owner !== 'all' && c.owner_id !== owner) return false
+        if (set !== 'all' && c.set_code !== set) return false
+        if (type !== 'all' && !c.type_line.split(' // ')[0].includes(type)) return false
         if (onlyAvailable && pool.activeLoanFor(c.id)) return false
-        if (colors.length && !colors.every((col) => c.color_identity.includes(col))) return false
+        if (colors.includes('C') ? c.color_identity.length > 0 : colors.length && !colors.every((col) => c.color_identity.includes(col)))
+          return false
         if (!needle) return true
         return (
           c.name.toLowerCase().includes(needle) ||
@@ -59,9 +64,27 @@ export default function PoolScreen() {
         )
       })
       .sort((a, b) => a.name.localeCompare(b.name))
-  }, [pool.cards, pool.me, pool.activeLoanFor, q, owner, onlyAvailable, colors])
+  }, [pool.cards, pool.activeLoanFor, q, owner, set, type, onlyAvailable, colors])
 
-  const toggleColor = (c: string) => setColors((cs) => (cs.includes(c) ? cs.filter((x) => x !== c) : [...cs, c]))
+  // Colourless is exclusive: a card cannot be both colourless and green.
+  const toggleColor = (c: string) =>
+    setColors((cs) => (cs.includes(c) ? cs.filter((x) => x !== c) : c === 'C' ? ['C'] : [...cs.filter((x) => x !== 'C'), c]))
+
+  const sets = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const c of pool.cards) if (!m.has(c.set_code)) m.set(c.set_code, c.set_name || c.set_code.toUpperCase())
+    return [...m.entries()].sort((a, b) => a[1].localeCompare(b[1]))
+  }, [pool.cards])
+
+  const anyFilter = colors.length > 0 || onlyAvailable || owner !== 'all' || set !== 'all' || type !== 'all' || !!q
+  const clearAll = () => {
+    setColors([])
+    setOnlyAvailable(false)
+    setOwner('all')
+    setSet('all')
+    setType('all')
+    setQ('')
+  }
 
   // Keep the open sheet pointed at fresh data after a loan changes.
   const openCard = open ? pool.cards.find((c) => c.id === open.id) ?? null : null
@@ -80,18 +103,31 @@ export default function PoolScreen() {
         />
       </div>
 
-      <div className="chips" style={{ marginTop: 10 }}>
-        <button className="chip" aria-pressed={owner === 'all'} onClick={() => setOwner('all')}>
-          Everyone
-        </button>
-        <button className="chip" aria-pressed={owner === 'others'} onClick={() => setOwner('others')}>
-          Not mine
-        </button>
-        {pool.players.map((p) => (
-          <button key={p.id} className="chip" aria-pressed={owner === p.id} onClick={() => setOwner(p.id)}>
-            {p.id === pool.me?.id ? 'Mine' : p.name}
-          </button>
-        ))}
+      <div className="filters">
+        <select className="select" value={owner} onChange={(e) => setOwner(e.target.value)} aria-label="Owner">
+          <option value="all">Everyone</option>
+          {pool.players.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.id === pool.me?.id ? 'Mine' : p.name}
+            </option>
+          ))}
+        </select>
+        <select className="select" value={set} onChange={(e) => setSet(e.target.value)} aria-label="Set">
+          <option value="all">Any set</option>
+          {sets.map(([code, name]) => (
+            <option key={code} value={code}>
+              {name} ({code.toUpperCase()})
+            </option>
+          ))}
+        </select>
+        <select className="select" value={type} onChange={(e) => setType(e.target.value)} aria-label="Card type">
+          <option value="all">Any type</option>
+          {TYPES.map((t) => (
+            <option key={t} value={t}>
+              {t}
+            </option>
+          ))}
+        </select>
       </div>
       <div className="chips">
         <button className="chip" aria-pressed={onlyAvailable} onClick={() => setOnlyAvailable((v) => !v)}>
@@ -99,19 +135,14 @@ export default function PoolScreen() {
         </button>
         {COLORS.map((c) => (
           <button key={c} className="chip" aria-pressed={colors.includes(c)} onClick={() => toggleColor(c)} aria-label={`Colour ${c}`}>
-            <i className={`pip ${c}`} />
+            <Pip c={c} />
           </button>
         ))}
-        {(colors.length > 0 || onlyAvailable || owner !== 'all' || q) && (
-          <button
-            className="chip"
-            onClick={() => {
-              setColors([])
-              setOnlyAvailable(false)
-              setOwner('all')
-              setQ('')
-            }}
-          >
+        <button className="chip" aria-pressed={colors.includes('C')} onClick={() => toggleColor('C')} aria-label="Colourless">
+          <Pip c="C" />
+        </button>
+        {anyFilter && (
+          <button className="chip" onClick={clearAll}>
             Clear
           </button>
         )}

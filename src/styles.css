@@ -567,22 +567,43 @@ main {
 }
 
 .pip {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  border: 1px solid rgba(0, 0, 0, 0.35);
-}
-
-.pip.W { background: var(--w); }
-.pip.U { background: var(--u); }
-.pip.B { background: var(--b); }
-.pip.R { background: var(--r); }
-.pip.G { background: var(--g); }
-.pip.C { background: var(--c); }
-
-.chip .pip {
   width: 14px;
   height: 14px;
+  border-radius: 50%;
+  box-shadow: -1px 1px 0 rgba(0, 0, 0, 0.55);
+  vertical-align: middle;
+}
+
+.chip .pip {
+  width: 16px;
+  height: 16px;
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.select {
+  appearance: none;
+  padding: 7px 32px 7px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%23fbe9c0' stroke-width='1.8' stroke-linecap='round'/%3E%3C/svg%3E")
+      no-repeat right 12px center,
+    var(--felt-2);
+  color: var(--ink);
+  font-size: 13px;
+  max-width: 220px;
+  text-overflow: ellipsis;
+}
+
+.select:focus {
+  outline: 2px solid var(--gold-2);
+  outline-offset: 1px;
 }
 
 /* ---------- card grid ---------- */
