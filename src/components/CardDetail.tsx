@@ -23,6 +23,7 @@ export default function CardDetail({
   const mine = card.owner_id === pool.me?.id
   const iAsked = loan?.borrower_id === pool.me?.id
   const [notes, setNotes] = useState(card.notes)
+  const [flipped, setFlipped] = useState(false)
   const [busy, setBusy] = useState(false)
 
   async function run(label: string, fn: () => Promise<void>) {
@@ -40,7 +41,17 @@ export default function CardDetail({
   return (
     <Sheet onClose={onClose} label={card.name}>
       <div className="detail">
-        <img src={card.image_normal || card.image_small} alt={`${card.name} card`} />
+        {card.image_back ? (
+          <button className={`flip ${flipped ? 'flipped' : ''}`} onClick={() => setFlipped((f) => !f)} aria-label={flipped ? 'Show the front face' : 'Show the back face'}>
+            <span className="flip-inner">
+              <img className="face front" src={card.image_normal || card.image_small} alt={`${card.name} front face`} />
+              <img className="face back" src={card.image_back} alt={`${card.name} back face`} loading="lazy" />
+            </span>
+            <span className="flip-hint">{flipped ? 'Tap to flip back' : 'Tap to flip'}</span>
+          </button>
+        ) : (
+          <img src={card.image_normal || card.image_small} alt={`${card.name} card`} />
+        )}
         <div>
           <h2>{card.name}</h2>
           <div className="meta">{card.type_line}</div>

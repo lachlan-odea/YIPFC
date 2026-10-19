@@ -15,6 +15,9 @@ everyone's cards together, sorted by name.
 - Filter by owner, set, card type and colour identity (including colourless).
   Cards that are out on loan are greyed out.
 - Tap a card to see its printing, the spare copies you have, and who owns it.
+  Double-faced cards show a ⇄ mark on the tile and flip over in the card view.
+  The type filter counts every face, so an Instant // Land is under Land too,
+  and has a Double-faced (MDFC) option.
 - Change the printing, foil or non-foil finish, quantity and note of your own
   cards, or take a card out of the pool. Foil and non-foil copies of the same
   printing are listed separately and priced separately.

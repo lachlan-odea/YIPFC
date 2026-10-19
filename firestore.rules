@@ -45,7 +45,7 @@ service cloud.firestore {
         && request.resource.data.quantity >= 0
         && isIso(request.resource.data.created_at);
       allow update: if isPod()
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['quantity', 'notes'])
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['quantity', 'notes', 'layout', 'image_back'])
         && request.resource.data.quantity is int
         && request.resource.data.quantity >= 0
         && request.resource.data.notes is string;

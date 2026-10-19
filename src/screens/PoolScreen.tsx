@@ -4,6 +4,7 @@ import type { PoolCard } from '../lib/types'
 import { Icons, Pip, Pips } from '../components/ui'
 import CardDetail from '../components/CardDetail'
 import SetCompletion from '../components/SetCompletion'
+import { backfillFaces } from '../lib/faces'
 import { audFor as priceFor, audRate, formatAud, usdPrices, type Price } from '../lib/prices'
 
 const PRICES_KEY = 'yipfc/show-prices'
@@ -11,7 +12,7 @@ const PRICES_KEY = 'yipfc/show-prices'
 type Pricing = { rate: number; date: string; prices: Record<string, Price | null> }
 
 const COLORS = ['W', 'U', 'B', 'R', 'G'] as const
-const TYPES = ['Creature', 'Instant', 'Sorcery', 'Artifact', 'Enchantment', 'Planeswalker', 'Battle', 'Land'] as const
+const TYPES = ['Creature', 'Instant', 'Sorcery', 'Artifact', 'Enchantment', 'Planeswalker', 'Battle', 'Land', 'MDFC'] as const
 
 export default function PoolScreen() {
   const pool = usePool()
@@ -26,6 +27,11 @@ export default function PoolScreen() {
   const [priceError, setPriceError] = useState<string | null>(null)
   const [sort, setSort] = useState<'name' | 'price-desc' | 'price-asc'>('name')
   const [showSets, setShowSets] = useState(false)
+
+  // Rows from before back faces were stored get their layout and back image filled in once.
+  useEffect(() => {
+    void backfillFaces(pool.cards, (id, patch) => pool.updateCard(id, patch))
+  }, [pool.cards, pool.updateCard])
 
   // Fetch today's rate and any prices we do not have yet whenever prices are shown.
   const idKey = pool.cards.map((c) => c.scryfall_id).sort().join(',')
@@ -52,7 +58,8 @@ export default function PoolScreen() {
       .filter((c) => {
         if (owner !== 'all' && c.owner_id !== owner) return false
         if (set !== 'all' && c.set_code !== set) return false
-        if (type !== 'all' && !c.type_line.split(' // ')[0].includes(type)) return false
+        // Every face counts: an Instant // Land shows up under Instant and under Land.
+        if (type === 'MDFC' ? c.layout !== 'modal_dfc' : type !== 'all' && !c.type_line.split(' // ').some((f) => f.includes(type))) return false
         if (colors.includes('C') ? c.color_identity.length > 0 : colors.length && !colors.every((col) => c.color_identity.includes(col)))
           return false
         if (!needle) return true
@@ -138,7 +145,7 @@ export default function PoolScreen() {
           <option value="all">Any type</option>
           {TYPES.map((t) => (
             <option key={t} value={t}>
-              {t}
+              {t === 'MDFC' ? 'Double-faced (MDFC)' : t}
             </option>
           ))}
         </select>
@@ -230,6 +237,7 @@ function Tile({ card, aud, foilPrice, onOpen }: { card: PoolCard; aud: number | 
         <img src={card.image_normal || card.image_small} alt="" loading="lazy" />
         {card.quantity > 1 && <span className="qty">×{card.quantity}</span>}
         {card.foil && <span className="foil-tag" title="Foil">✦ Foil</span>}
+        {card.image_back && <span className="dfc-tag" title="Double-faced: open to flip">⇄</span>}
         {aud !== null && (
           <span className="price" title={foilPrice ? 'Foil price, converted to AUD' : 'Scryfall price, converted to AUD'}>
             {formatAud(aud)}

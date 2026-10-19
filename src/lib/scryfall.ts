@@ -15,6 +15,7 @@ export type ScryfallCard = {
   color_identity?: string[]
   rarity?: string
   oracle_text?: string
+  layout?: string
   prices?: { usd: string | null; usd_foil: string | null; eur: string | null; eur_foil: string | null }
   image_uris?: Record<string, string>
   card_faces?: Array<{
@@ -144,5 +145,7 @@ export function toPoolCard(card: ScryfallCard, quantity = 1, notes = '', foil = 
     quantity,
     notes,
     foil,
+    layout: card.layout ?? 'normal',
+    image_back: card.card_faces?.[1]?.image_uris?.normal ?? '',
   }
 }

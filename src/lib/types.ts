@@ -25,6 +25,10 @@ export type PoolCard = {
   notes: string
   /** Foil copies are listed separately from non-foil ones of the same printing. */
   foil: boolean
+  /** Scryfall layout ("normal", "modal_dfc", "transform", ...). Undefined on rows added before it was stored. */
+  layout?: string
+  /** Back face image for double-faced cards; empty for single-faced. */
+  image_back?: string
   created_at: string
 }
 
@@ -77,7 +81,7 @@ export interface PoolStore {
   subscribe(onChange: () => void): () => void
   upsertPlayer(player: Pick<Player, 'id' | 'name'>): Promise<Player>
   addCards(ownerId: string, cards: NewPoolCard[]): Promise<PoolCard[]>
-  updateCard(id: string, patch: Partial<Pick<PoolCard, 'quantity' | 'notes'>>): Promise<void>
+  updateCard(id: string, patch: Partial<Pick<PoolCard, 'quantity' | 'notes' | 'layout' | 'image_back'>>): Promise<void>
   removeCard(id: string): Promise<void>
   /** Swap a row for a different printing or finish, keeping owner, quantity and notes; merges into an existing matching row. */
   replaceCard(id: string, next: NewPoolCard): Promise<PoolCard>

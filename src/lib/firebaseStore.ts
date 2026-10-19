@@ -157,7 +157,7 @@ export class FirebaseStore implements PoolStore {
     return added
   }
 
-  async updateCard(id: string, patch: Partial<Pick<PoolCard, 'quantity' | 'notes'>>) {
+  async updateCard(id: string, patch: Partial<Pick<PoolCard, 'quantity' | 'notes' | 'layout' | 'image_back'>>) {
     await updateDoc(doc(this.db, 'cards', id), patch)
   }
 
