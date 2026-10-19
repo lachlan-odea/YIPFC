@@ -1,0 +1,68 @@
+rules_version = '2';
+
+// Pod Pool rules. Deploy with `npx firebase deploy --only firestore:rules`
+// or paste into Firestore > Rules in the Firebase console.
+//
+// This is a trusted friend group, so access is intentionally simple: anyone
+// who has the app's web config can read and write. The checks below only
+// keep the documents well-formed so a bug in one phone cannot wreck the pool.
+// If you ever want a lock, turn on Firebase Auth (anonymous sign-in is
+// enough) and change the `isPod()` function to `request.auth != null`.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isPod() {
+      return true;
+    }
+
+    function isIso(v) {
+      return v is string && v.size() >= 20;
+    }
+
+    match /players/{playerId} {
+      allow read: if isPod();
+      allow create: if isPod()
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.name.size() <= 60
+        && isIso(request.resource.data.created_at);
+      allow update: if isPod()
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.name.size() <= 60
+        && request.resource.data.created_at == resource.data.created_at;
+      allow delete: if isPod();
+    }
+
+    match /cards/{cardId} {
+      allow read: if isPod();
+      allow create: if isPod()
+        && cardId == request.resource.data.owner_id + '__' + request.resource.data.scryfall_id
+        && request.resource.data.name is string
+        && request.resource.data.quantity is int
+        && request.resource.data.quantity >= 0
+        && isIso(request.resource.data.created_at);
+      allow update: if isPod()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['quantity', 'notes'])
+        && request.resource.data.quantity is int
+        && request.resource.data.quantity >= 0
+        && request.resource.data.notes is string;
+      allow delete: if isPod();
+    }
+
+    match /loans/{loanId} {
+      allow read: if isPod();
+      allow create: if isPod()
+        && request.resource.data.status == 'requested'
+        && request.resource.data.card_id is string
+        && request.resource.data.borrower_id is string
+        && isIso(request.resource.data.requested_at)
+        && isIso(request.resource.data.updated_at);
+      allow update: if isPod()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updated_at'])
+        && request.resource.data.status in ['requested', 'lent', 'returned', 'declined']
+        && isIso(request.resource.data.updated_at);
+      allow delete: if isPod();
+    }
+  }
+}

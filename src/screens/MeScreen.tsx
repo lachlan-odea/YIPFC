@@ -78,8 +78,8 @@ export default function MeScreen() {
 
       {pool.mode === 'local' && (
         <div className="notice warn">
-          Cards and loans are stored only in this browser. To share with your pod, create a free Supabase project, run the SQL in
-          the repo's supabase folder, put the URL and anon key in a .env file, and redeploy. The README walks through it.
+          Cards and loans are stored only in this browser. To share with your pod, create a free Firebase project with a
+          Firestore database, put its web config in a .env file, and redeploy. The README walks through it.
         </div>
       )}
 

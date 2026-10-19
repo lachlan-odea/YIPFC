@@ -17,24 +17,52 @@ same Wi-Fi, use the `Network:` URL. Browsers only allow the camera on `https://`
 or `localhost`, so for phone testing either deploy (below) or run
 `npm run dev -- --https` with a local certificate.
 
-Until you connect Supabase, the app runs in **this device only** mode: cards and
+Until you connect Firebase, the app runs in **this device only** mode: cards and
 loans live in that browser's storage. Everything works, nothing is shared.
 
-## Share it with your pod (Supabase)
+## Share it with your pod (Firebase)
 
-1. Create a free project at <https://supabase.com>.
-2. Open the SQL editor and run the whole of [`supabase/schema.sql`](supabase/schema.sql).
-3. In Project Settings, API, copy the project URL and the `anon` public key.
-4. Copy `.env.example` to `.env` and paste them in.
-5. Rebuild and deploy. Each person opens the URL, types their name once, and
+1. Create a free project at <https://console.firebase.google.com>. Google
+   Analytics is not needed; turn it off when asked.
+2. In the left menu open **Build, Firestore Database** and click **Create
+   database**. Pick a region near your pod and start in **production mode**.
+3. Open the **Rules** tab, replace the contents with
+   [`firestore.rules`](firestore.rules) from this repo, and publish. (Or, with
+   Node installed, run `npx firebase login` then
+   `npx firebase deploy --only firestore:rules --project <your-project-id>`.)
+4. Back at **Project Overview**, click the `</>` web icon to register a web
+   app. Skip Firebase Hosting. It shows a `firebaseConfig` block; you need
+   `apiKey`, `projectId` and `appId`.
+5. Copy `.env.example` to `.env` and paste those three values in.
+6. Rebuild and deploy. Each person opens the URL, types their name once, and
    installs it to their home screen.
 
-The schema deliberately lets anyone with the app's anon key read and write.
-That is fine for a group of friends who share one URL. If you ever want to lock
-it down, enable Supabase Auth and replace the `pod can do anything` policies.
+The web config values are public by design; Firestore access is controlled by
+the rules file, not by keeping them secret. The rules deliberately let anyone
+using the app read and write, which is fine for a group of friends who share
+one URL. If you ever want to lock it down, enable Anonymous sign-in under
+**Authentication** and change `isPod()` in `firestore.rules` to
+`request.auth != null`.
 
-Realtime is on, so when one person adds a card or marks something lent, the
-other phones update within a second.
+Firestore pushes changes live, so when one person adds a card or marks
+something lent, the other phones update within a second. The app also keeps a
+local copy, so the pool still opens with no signal and any changes made offline
+sync when the phone is back online.
+
+The free Spark plan allows 50,000 reads and 20,000 writes a day, which is far
+more than a pod will use.
+
+### Data layout
+
+Three collections, matching the types in [`src/lib/types.ts`](src/lib/types.ts):
+
+| Collection | Document id | Notes |
+| --- | --- | --- |
+| `players` | the player's random id, saved on their phone | `name`, `created_at` |
+| `cards` | `<owner_id>__<scryfall_id>` | one document per owner and printing; adding the same card again bumps `quantity` |
+| `loans` | auto | `card_id`, `borrower_id`, `status`, timestamps |
+
+Timestamps are ISO-8601 strings. Deleting a card also deletes its loans.
 
 ## Deploy
 
@@ -43,9 +71,10 @@ The app is published with GitHub Pages at
 [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml), which runs the
 tests, builds, and deploys `dist/`.
 
-To turn on pod sharing in the deployed app, add two repository secrets in
-GitHub (Settings, Secrets and variables, Actions): `VITE_SUPABASE_URL` and
-`VITE_SUPABASE_ANON_KEY`. The next deploy picks them up.
+To turn on pod sharing in the deployed app, add three repository secrets in
+GitHub (Settings, Secrets and variables, Actions): `VITE_FIREBASE_API_KEY`,
+`VITE_FIREBASE_PROJECT_ID` and `VITE_FIREBASE_APP_ID`. The next deploy picks
+them up.
 
 The site lives under the `/pod-pool/` path, which is set as `base` in
 `vite.config.ts`. If you fork this under a different repo name, change that
@@ -106,8 +135,9 @@ src/
   lib/        Scryfall client, list parser, OCR, and the two data stores
   screens/    Pool, Add, Loans, You, and the first-run Welcome
   components/ Scanner, SearchAdd, ImportList, CardDetail, shared UI bits
-supabase/     schema.sql to paste into a new Supabase project
 scripts/      make-icons.mjs renders the PNG icons from the SVG motif
+firestore.rules      Firestore security rules (paste into the console or deploy with the CLI)
+firebase.json        Points the Firebase CLI at the rules file
 ```
 
 Card data and images are from [Scryfall](https://scryfall.com). Pod Pool is

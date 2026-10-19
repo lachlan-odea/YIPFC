@@ -1,10 +1,11 @@
 import { get, set } from 'idb-keyval'
+import { uid } from './uid'
 import type { Loan, LoanStatus, NewPoolCard, Player, PoolCard, PoolStore, Snapshot } from './types'
 
 const KEY = 'pod-pool/v1'
 
 /**
- * Single-device store backed by IndexedDB. Used when no Supabase config is
+ * Single-device store backed by IndexedDB. Used when no Firebase config is
  * present so the app is fully usable on one phone before the pod sets up
  * sharing. Also doubles as a readable reference for the store contract.
  */
@@ -57,7 +58,7 @@ export class LocalStore implements PoolStore {
         added.push(dup)
         continue
       }
-      const row: PoolCard = { ...c, id: crypto.randomUUID(), owner_id: ownerId, created_at: now }
+      const row: PoolCard = { ...c, id: uid(), owner_id: ownerId, created_at: now }
       this.snap.cards.push(row)
       added.push(row)
     }
@@ -79,7 +80,7 @@ export class LocalStore implements PoolStore {
   async createLoan(cardId: string, borrowerId: string): Promise<Loan> {
     const now = new Date().toISOString()
     const loan: Loan = {
-      id: crypto.randomUUID(),
+      id: uid(),
       card_id: cardId,
       borrower_id: borrowerId,
       status: 'requested',

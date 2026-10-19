@@ -1,14 +1,14 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { LocalStore } from './localStore'
-import { SupabaseStore } from './supabaseStore'
+import { uid } from './uid'
+import { FirebaseStore, firebaseConfigFromEnv } from './firebaseStore'
 import type { Loan, LoanStatus, NewPoolCard, Player, PoolCard, PoolStore, Snapshot } from './types'
 
 const ME_KEY = 'pod-pool/me'
 
 function createStore(): PoolStore {
-  const url = import.meta.env.VITE_SUPABASE_URL as string | undefined
-  const key = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined
-  if (url && key) return new SupabaseStore(url, key)
+  const config = firebaseConfigFromEnv(import.meta.env)
+  if (config) return new FirebaseStore(config)
   return new LocalStore()
 }
 
@@ -77,7 +77,7 @@ export function PoolProvider({ children }: { children: ReactNode }) {
       playerById,
       activeLoanFor,
       async setMe(name) {
-        const id = meId ?? crypto.randomUUID()
+        const id = meId ?? uid()
         await store.upsertPlayer({ id, name: name.trim() })
         localStorage.setItem(ME_KEY, id)
         setMeId(id)
