@@ -50,7 +50,30 @@ const jobs = [
   png(sharp(LOGO).resize(512, 512)).toFile('public/brand/logo.png'),
   png(sharp(LOGO).extract(HEAD).resize(256, 256)).toFile('public/brand/goblin.png'),
   png(sharp(WORDMARK).resize({ width: 480 })).toFile('public/brand/wordmark-sm.png'),
+  // Link preview card (Open Graph): goblin on the left, wordmark on the right.
+  ogImage(),
 ]
+
+async function ogImage() {
+  const W = 1200, H = 630
+  const logo = await sharp(LOGO).resize(560, 560).png().toBuffer()
+  const mark = await sharp(WORDMARK).resize({ width: 560 }).png().toBuffer()
+  const markMeta = await sharp(mark).metadata()
+  const tagline = Buffer.from(
+    `<svg width="560" height="90" xmlns="http://www.w3.org/2000/svg">
+      <text x="280" y="34" text-anchor="middle" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="27" font-weight="600" fill="#fbe9c0">The shared pile of spare Commander cards</text>
+      <text x="280" y="72" text-anchor="middle" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="27" font-weight="600" fill="#fbe9c0">your pod can borrow from each other</text>
+    </svg>`,
+  )
+  await sharp({ create: { width: W, height: H, channels: 4, background: bg } })
+    .composite([
+      { input: logo, left: 40, top: 35 },
+      { input: mark, left: 610, top: Math.round((H - markMeta.height) / 2) - 40 },
+      { input: tagline, left: 610, top: Math.round((H - markMeta.height) / 2) + markMeta.height - 20 },
+    ])
+    .png({ compressionLevel: 9 })
+    .toFile('public/brand/og.png')
+}
 
 await Promise.all(jobs)
 console.log(`brand assets written to public/icons and public/brand (background #${[bg.r, bg.g, bg.b].map((v) => v.toString(16).padStart(2, '0')).join('')})`)

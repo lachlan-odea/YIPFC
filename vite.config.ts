@@ -11,7 +11,8 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['brand/*.png', 'icons/apple-touch-180.png'],
+      // og.png is only for link previews, so it stays out of the offline precache.
+      includeAssets: ['brand/favicon.png', 'brand/logo.png', 'brand/goblin.png', 'brand/wordmark-sm.png', 'icons/apple-touch-180.png'],
       manifest: {
         name: 'Yes I pay for cardboard',
         short_name: 'YIPFC',
@@ -30,7 +31,7 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
-        globIgnores: ['**/art-index.bin'],
+        globIgnores: ['**/art-index.bin', '**/brand/og.png'],
         maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
         runtimeCaching: [
           {
