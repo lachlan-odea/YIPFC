@@ -35,7 +35,9 @@ loans live in that browser's storage. Everything works, nothing is shared.
    `apiKey`, `projectId` and `appId`.
 5. Copy `.env.example` to `.env` and paste those three values in.
 6. Rebuild and deploy. Each person opens the URL, types their name once, and
-   installs it to their home screen.
+   installs it to their home screen. Typing a name the pod already knows, on
+   any device, signs in as that player rather than creating a second one, so
+   switching phones is just a matter of entering the same name.
 
 The web config values are public by design; Firestore access is controlled by
 the rules file, not by keeping them secret. The rules deliberately let anyone

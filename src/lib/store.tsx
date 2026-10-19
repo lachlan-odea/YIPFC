@@ -78,8 +78,24 @@ export function PoolProvider({ children }: { children: ReactNode }) {
       playerById,
       activeLoanFor,
       async setMe(name) {
+        const clean = name.trim()
+        const sameName = snap.players.find((p) => p.id !== meId && namesMatch(p.name, clean))
+        if (!meId && sameName) {
+          // Joining on a new device with a name the pod already knows: that is
+          // the same person, so sign them in as that player rather than
+          // creating a second one.
+          localStorage.setItem(ME_KEY, sameName.id)
+          setMeId(sameName.id)
+          await refresh()
+          return
+        }
+        if (sameName) {
+          throw new Error(
+            `Someone in the pod is already called ${sameName.name}. Pick another name, or sign out and join as them.`,
+          )
+        }
         const id = meId ?? uid()
-        await store.upsertPlayer({ id, name: name.trim() })
+        await store.upsertPlayer({ id, name: clean })
         localStorage.setItem(ME_KEY, id)
         setMeId(id)
         await refresh()
@@ -112,6 +128,12 @@ export function PoolProvider({ children }: { children: ReactNode }) {
   }, [store, snap, ready, error, me, meId, refresh])
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
+}
+
+/** "Lachlan", "lachlan " and "LACHLAN" are the same person. */
+function namesMatch(a: string, b: string) {
+  const fold = (s: string) => s.trim().replace(/\s+/g, ' ').toLocaleLowerCase()
+  return fold(a) === fold(b)
 }
 
 export function usePool(): PoolContext {

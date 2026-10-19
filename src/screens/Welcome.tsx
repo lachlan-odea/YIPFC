@@ -28,7 +28,8 @@ export default function Welcome() {
           <img src={`${import.meta.env.BASE_URL}icons/icon.svg`} alt="" width="72" height="72" style={{ borderRadius: 16 }} />
           <h1 className="title">Who are you in the pod?</h1>
           <p className="subtitle">
-            Your name goes on the cards you add and the ones you borrow. Use the same name on each device.
+            Your name goes on the cards you add and the ones you borrow. Already joined on another phone? Type the same
+            name and you will pick up where you left off.
           </p>
           <input
             className="input"
