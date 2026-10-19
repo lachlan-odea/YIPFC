@@ -12,19 +12,26 @@ const FRAME: Frame = (() => {
   return { x: (1 - w) / 2, y: (1 - h) / 2, w, h }
 })()
 
+/** After adding a card, ignore that same name for this long so it is not re-scanned while being put down. */
+const SUPPRESS_MS = 5000
+
 type Phase =
   | { kind: 'live' }
   | { kind: 'reading'; still: HTMLCanvasElement }
   | { kind: 'choose'; still: HTMLCanvasElement; read: string; candidates: ScryfallCard[]; picked: ScryfallCard | null }
   | { kind: 'nomatch'; still: HTMLCanvasElement; read: string }
 
+type Readout = { kind: 'idle' | 'reading' | 'checking' | 'locked'; text: string }
+
 export default function Scanner() {
   const videoRef = useRef<HTMLVideoElement>(null)
   const previewRef = useRef<HTMLCanvasElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
+  const suppressRef = useRef<{ name: string; until: number } | null>(null)
   const [camera, setCamera] = useState<'starting' | 'on' | 'off'>('starting')
   const [camError, setCamError] = useState<string | null>(null)
   const [phase, setPhase] = useState<Phase>({ kind: 'live' })
+  const [readout, setReadout] = useState<Readout>({ kind: 'idle', text: '' })
   const [added, setAdded] = useState(0)
 
   const stop = useCallback(() => {
@@ -94,16 +101,20 @@ export default function Scanner() {
     return canvas
   }
 
-  async function identify(still: HTMLCanvasElement, frame: Frame) {
+  /** Freeze on a still and resolve it to a card. `known` skips OCR when the live loop already matched. */
+  async function identify(still: HTMLCanvasElement, frame: Frame, known?: { read: string; best: ScryfallCard }) {
     setPhase({ kind: 'reading', still })
     try {
-      const band = cropTitleBand(still, still.width, still.height, frame)
-      const read = await readTitle(band)
+      let read = known?.read
+      if (read === undefined) {
+        const band = cropTitleBand(still, still.width, still.height, frame)
+        read = await readTitle(band)
+      }
       if (read.length < 3) {
         setPhase({ kind: 'nomatch', still, read })
         return
       }
-      const candidates = await findCandidates(read)
+      const candidates = await findCandidates(read, known?.best)
       if (candidates.length === 0) setPhase({ kind: 'nomatch', still, read })
       else setPhase({ kind: 'choose', still, read, candidates, picked: candidates[0] })
     } catch (e) {
@@ -111,12 +122,69 @@ export default function Scanner() {
     }
   }
 
-  function snap() {
-    const still = captureStill()
-    if (!still) return
+  function freeze(still: HTMLCanvasElement, known?: { read: string; best: ScryfallCard }) {
     stop()
     setCamera('off')
-    void identify(still, FRAME)
+    void identify(still, FRAME, known)
+  }
+
+  // Live scanning: read the title band over and over while the camera is on.
+  // A card locks in when two consecutive reads agree and Scryfall knows the name.
+  const live = phase.kind === 'live'
+  useEffect(() => {
+    if (!live || camera !== 'on') return
+    let cancelled = false
+    let lastKey = ''
+    const failed = new Set<string>()
+    setReadout({ kind: 'idle', text: '' })
+
+    const loop = async () => {
+      while (!cancelled) {
+        const still = captureStill()
+        if (!still) {
+          await sleep(150)
+          continue
+        }
+        let read: string
+        try {
+          read = await readTitle(cropTitleBand(still, still.width, still.height, FRAME))
+        } catch {
+          await sleep(300)
+          continue
+        }
+        if (cancelled) return
+        const key = normalize(read)
+        const stable = key.length >= 4 && key === lastKey
+        lastKey = key
+        setReadout(read ? { kind: 'reading', text: read } : { kind: 'idle', text: '' })
+        if (!stable || failed.has(key)) continue
+
+        setReadout({ kind: 'checking', text: read })
+        try {
+          const best = await namedFuzzy(read)
+          if (cancelled) return
+          const sup = suppressRef.current
+          if (sup && sup.name === best.name && Date.now() < sup.until) continue
+          setReadout({ kind: 'locked', text: best.name })
+          freeze(still, { read, best })
+          return
+        } catch {
+          if (cancelled) return
+          failed.add(key)
+        }
+      }
+    }
+    void loop()
+    return () => {
+      cancelled = true
+    }
+    // captureStill/freeze only touch refs and setters, so they need not be deps.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [live, camera])
+
+  function snap() {
+    const still = captureStill()
+    if (still) freeze(still)
   }
 
   async function fromFile(file: File) {
@@ -131,12 +199,13 @@ export default function Scanner() {
     void identify(canvas, { x: 0.02, y: 0.02, w: 0.96, h: 0.96 })
   }
 
-  function again() {
+  function again(justAdded?: string) {
+    suppressRef.current = justAdded ? { name: justAdded, until: Date.now() + SUPPRESS_MS } : null
     setPhase({ kind: 'live' })
     void start()
   }
 
-  const live = phase.kind === 'live'
+  const frameState = readout.kind === 'locked' ? 'locked' : readout.kind === 'checking' ? 'checking' : ''
 
   return (
     <div className="stack">
@@ -146,10 +215,27 @@ export default function Scanner() {
         {live && camera === 'on' && (
           <>
             <div
-              className="frame"
+              className={`frame ${frameState}`}
               style={{ left: `${FRAME.x * 100}%`, top: `${FRAME.y * 100}%`, width: `${FRAME.w * 100}%`, height: `${FRAME.h * 100}%` }}
             />
-            <div className="hint">Line the card up with the frame, name inside the gold box</div>
+            <div className="hint">
+              {readout.kind === 'idle' && 'Hold a card in the frame, name inside the gold box'}
+              {readout.kind === 'reading' && (
+                <>
+                  Reading <span className="readout">{readout.text}</span>
+                </>
+              )}
+              {readout.kind === 'checking' && (
+                <>
+                  Checking <span className="readout">{readout.text}</span>…
+                </>
+              )}
+              {readout.kind === 'locked' && (
+                <>
+                  Found <span className="readout">{readout.text}</span>
+                </>
+              )}
+            </div>
           </>
         )}
         {live && camera === 'starting' && <div className="hint">Starting camera…</div>}
@@ -158,7 +244,7 @@ export default function Scanner() {
             {camError}
           </div>
         )}
-        {phase.kind === 'reading' && <div className="hint">Reading the name…</div>}
+        {phase.kind === 'reading' && <div className="hint">Looking it up…</div>}
       </div>
 
       {live && (
@@ -173,7 +259,7 @@ export default function Scanner() {
               onChange={(e) => e.target.files?.[0] && void fromFile(e.target.files[0])}
             />
           </label>
-          <button className="shutter" onClick={snap} disabled={camera !== 'on'} aria-label="Scan this card">
+          <button className="shutter" onClick={snap} disabled={camera !== 'on'} aria-label="Scan now">
             <Icons.camera />
           </button>
           <span style={{ width: 84 }} className="small faint">
@@ -181,13 +267,18 @@ export default function Scanner() {
           </span>
         </div>
       )}
+      {live && camera === 'on' && (
+        <p className="small muted" style={{ textAlign: 'center', margin: 0 }}>
+          Scanning happens on its own. The button is there if it is being stubborn.
+        </p>
+      )}
 
       {phase.kind === 'nomatch' && (
         <div className="stack">
           <div className="notice warn">
             Could not match a card{phase.read ? ` from “${phase.read}”` : ''}. Hold the phone steadier, fill the frame, and avoid glare on the name.
           </div>
-          <button className="btn primary block" onClick={again}>
+          <button className="btn primary block" onClick={() => again()}>
             Try again
           </button>
         </div>
@@ -221,12 +312,12 @@ export default function Scanner() {
               onChangePrinting={(c) => setPhase({ ...phase, picked: c })}
               onAdded={() => {
                 setAdded((n) => n + 1)
-                again()
+                again(phase.picked?.name)
               }}
               addLabel="Add and scan the next one"
             />
           )}
-          <button className="btn quiet block" onClick={again}>
+          <button className="btn quiet block" onClick={() => again(phase.picked?.name)}>
             Not these. Scan again
           </button>
         </div>
@@ -235,16 +326,32 @@ export default function Scanner() {
   )
 }
 
-/** Fuzzy match first; then autocomplete alternatives so a misread letter is one tap to fix. */
-async function findCandidates(read: string): Promise<ScryfallCard[]> {
+/** Lower-case letters only, so "Lightning Bolt" and "lightning  bolt." compare equal between frames. */
+function normalize(s: string) {
+  return s.toLowerCase().replace(/[^a-z]/g, '')
+}
+
+function sleep(ms: number) {
+  return new Promise((r) => setTimeout(r, ms))
+}
+
+/**
+ * Fuzzy match first (or reuse one the live loop already fetched); then
+ * autocomplete alternatives so a misread letter is one tap to fix.
+ */
+async function findCandidates(read: string, best?: ScryfallCard): Promise<ScryfallCard[]> {
   const out: ScryfallCard[] = []
   const seen = new Set<string>()
-  try {
-    const best = await namedFuzzy(read)
+  if (!best) {
+    try {
+      best = await namedFuzzy(read)
+    } catch {
+      /* no fuzzy match, fall through to autocomplete */
+    }
+  }
+  if (best) {
     out.push(best)
     seen.add(best.name)
-  } catch {
-    /* no fuzzy match, fall through to autocomplete */
   }
   const alternatives = (await autocomplete(read).catch(() => [])).filter((n) => !seen.has(n)).slice(0, 5)
   if (alternatives.length) {

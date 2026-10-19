@@ -1,4 +1,4 @@
-import { createWorker, type Worker } from 'tesseract.js'
+import { createWorker, PSM, type Worker } from 'tesseract.js'
 
 /**
  * Reads a card's title from a photo. The scanner UI asks the user to line the
@@ -17,6 +17,9 @@ export function getWorker(): Promise<Worker> {
       await w.setParameters({
         // Card names: letters, spaces and a little punctuation. No digits.
         tessedit_char_whitelist: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz '-,.",
+        // The crop is always one line of text; telling Tesseract so is faster
+        // and far more reliable than letting it hunt for a page layout.
+        tessedit_pageseg_mode: PSM.SINGLE_LINE,
       })
       return w
     })
@@ -60,12 +63,27 @@ export function cropTitleBand(source: CanvasImageSource, srcW: number, srcH: num
 
   const img = ctx.getImageData(0, 0, canvas.width, canvas.height)
   const d = img.data
-  // Greyscale, then stretch contrast around the median so dark text pops on any frame colour.
+  // Greyscale, then stretch contrast between the 5th and 95th percentiles so
+  // dark text pops on any frame colour. A histogram keeps this cheap enough
+  // to run on every frame of the live scan.
   const greys = new Uint8ClampedArray(d.length / 4)
-  for (let i = 0, j = 0; i < d.length; i += 4, j++) greys[j] = (d[i] * 299 + d[i + 1] * 587 + d[i + 2] * 114) / 1000
-  const sorted = Array.from(greys).sort((a, b) => a - b)
-  const lo = sorted[Math.floor(sorted.length * 0.05)]
-  const hi = sorted[Math.floor(sorted.length * 0.95)]
+  const hist = new Uint32Array(256)
+  for (let i = 0, j = 0; i < d.length; i += 4, j++) {
+    const g = (d[i] * 299 + d[i + 1] * 587 + d[i + 2] * 114) / 1000
+    greys[j] = g
+    hist[greys[j]]++
+  }
+  const percentile = (p: number) => {
+    let n = 0
+    const target = greys.length * p
+    for (let v = 0; v < 256; v++) {
+      n += hist[v]
+      if (n >= target) return v
+    }
+    return 255
+  }
+  const lo = percentile(0.05)
+  const hi = percentile(0.95)
   const range = Math.max(1, hi - lo)
   for (let i = 0, j = 0; i < d.length; i += 4, j++) {
     const v = Math.min(255, Math.max(0, ((greys[j] - lo) / range) * 255))

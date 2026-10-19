@@ -785,6 +785,26 @@ main {
   height: 7.2%;
   border: 1.5px dashed var(--gold);
   border-radius: 4px;
+  transition: border-color 150ms, background 150ms;
+}
+
+.viewfinder .frame.checking::after {
+  border-style: solid;
+  background: color-mix(in srgb, var(--gold) 18%, transparent);
+}
+
+.viewfinder .frame.locked {
+  border-color: #7fd49a;
+}
+
+.viewfinder .frame.locked::after {
+  border: 2px solid #7fd49a;
+  background: rgba(127, 212, 154, 0.25);
+}
+
+.viewfinder .hint .readout {
+  color: var(--gold-2);
+  font-weight: 600;
 }
 
 .viewfinder .hint {

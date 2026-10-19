@@ -86,21 +86,25 @@ provides it.
 
 ## How scanning works
 
-The scanner shows a card-shaped frame. Line the card up, tap the shutter, and the
-app crops just the title band, boosts the contrast, and reads it with
-Tesseract (on-device OCR, nothing is uploaded). The text goes to Scryfall's
-fuzzy lookup, and the closest alternatives are shown as a row of pictures so a
-misread letter is one tap to fix. The first scan downloads about 4 MB of OCR
-language data; after that it is cached offline.
+The scanner shows a card-shaped frame. Hold a card in it and the app scans on
+its own: it keeps cropping just the title band, boosting the contrast, and
+reading it with Tesseract (on-device OCR, nothing is uploaded). When two
+reads in a row agree and Scryfall recognises the name, the frame turns green,
+the picture freezes, and the closest alternatives are shown as a row of
+pictures so a misread letter is one tap to fix. After you add a card, the same
+name is ignored for a few seconds so it is not picked up again while you swap
+cards. The first scan downloads about 4 MB of OCR language data; after that it
+is cached offline.
 
 Tips that make a big difference:
 
 - Fill the frame. The gold dashed box should sit over the card's name.
 - Avoid glare on the title bar. Foils are harder; tilt the card slightly.
-- Hold still for a beat before tapping.
+- Hold still for a second. The hint under the frame shows what it is reading.
 
-If the camera is blocked, the **Photo** button opens the camera app instead and
-reads the title from the photo.
+The shutter button is still there as a manual fallback. If the camera is
+blocked, the **Photo** button opens the camera app instead and reads the title
+from the photo.
 
 ## Importing lists
 
