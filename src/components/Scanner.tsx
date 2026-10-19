@@ -25,10 +25,13 @@ const SAME_CARD_MS = 1500
  * Picture matching thresholds (Hamming distance out of 256). A frame counts
  * when its nearest artwork is this close AND clearly ahead of the nearest
  * different card; two agreeing frames lock, or one very close frame.
+ * Calibrated with scripts/selftest-art-index.mjs on roughed-up images the
+ * index never saw: true matches p50 49 / p99 68, nearest wrong card min 64,
+ * p50 86 (48k artworks, 150 samples, 100% top-1).
  */
-const ART_MAX = 60
-const ART_GAP = 14
-const ART_SURE = 34
+const ART_MAX = 66
+const ART_GAP = 12
+const ART_SURE = 46
 const ART_TICK_MS = 140
 /** How long the "got it" bubble stays up. */
 const FLASH_MS = 1800
