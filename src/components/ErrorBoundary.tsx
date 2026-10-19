@@ -14,7 +14,7 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, State> {
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
-    console.error('[knowledgepool] render failed', error, info.componentStack)
+    console.error('[yipfc] render failed', error, info.componentStack)
   }
 
   render() {
@@ -22,7 +22,7 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, State> {
     return (
       <div className="app">
         <div className="empty">
-          <strong>KnowledgePool hit a snag</strong>
+          <strong>YIPFC hit a snag</strong>
           <p style={{ wordBreak: 'break-word' }}>{this.state.error.message}</p>
           <button className="btn" onClick={() => location.reload()}>
             Reload

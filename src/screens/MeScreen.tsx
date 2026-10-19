@@ -87,7 +87,7 @@ export default function MeScreen() {
         <div className="notice">
           {install ? (
             <div className="row between">
-              <span>Install KnowledgePool for a full-screen app with the camera one tap away.</span>
+              <span>Install YIPFC for a full-screen app with the camera one tap away.</span>
               <button className="btn sm primary" onClick={() => void install.prompt()}>
                 Install
               </button>
@@ -116,7 +116,7 @@ export default function MeScreen() {
       </div>
 
       <p className="small faint">
-        Card data and images come from Scryfall. KnowledgePool is unofficial Fan Content permitted under the Wizards of the Coast Fan Content Policy.
+        Card data and images come from Scryfall. YIPFC is unofficial Fan Content permitted under the Wizards of the Coast Fan Content Policy.
       </p>
     </div>
   )

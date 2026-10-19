@@ -1,6 +1,6 @@
 rules_version = '2';
 
-// KnowledgePool rules. Deploy with `npx firebase deploy --only firestore:rules`
+// YIPFC rules. Deploy with `npx firebase deploy --only firestore:rules`
 // or paste into Firestore > Rules in the Firebase console.
 //
 // This is a trusted friend group, so access is intentionally simple: anyone
