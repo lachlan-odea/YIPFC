@@ -15,7 +15,6 @@ const TABS: Array<{ id: Tab; label: string; icon: () => JSX.Element }> = [
   { id: 'add', label: 'Add', icon: Icons.add },
   { id: 'decks', label: 'Decks', icon: Icons.decks },
   { id: 'loans', label: 'Loans', icon: Icons.loans },
-  { id: 'me', label: 'You', icon: Icons.me },
 ]
 
 export default function App() {
@@ -52,9 +51,21 @@ export default function App() {
             <img src={`${import.meta.env.BASE_URL}brand/wordmark-sm.png`} alt="Yes I pay for cardboard" />
             <small>{pool.cards.reduce((n, c) => n + c.quantity, 0)} spare cards across {pool.players.length} players</small>
           </div>
-          <span className={`mode-pill ${pool.mode}`} title={pool.mode === 'shared' ? 'Synced with your pod' : 'Only on this device'}>
-            {pool.mode === 'shared' ? 'Synced' : 'This device only'}
-          </span>
+          <div className="topbar-right">
+            <span className={`mode-pill ${pool.mode}`} title={pool.mode === 'shared' ? 'Synced with your pod' : 'Only on this device'}>
+              {pool.mode === 'shared' ? 'Synced' : 'This device'}
+            </span>
+            <button
+              className="me-btn"
+              onClick={() => setTab('me')}
+              aria-current={tab === 'me' ? 'page' : undefined}
+              aria-label={`You: ${pool.me.name}`}
+              title="Your profile and settings"
+            >
+              <Icons.me />
+              <span>{pool.me.name.split(' ')[0]}</span>
+            </button>
+          </div>
         </header>
         <main>
           {pool.error && <div className="notice warn">Could not reach the shared pool: {pool.error}</div>}
