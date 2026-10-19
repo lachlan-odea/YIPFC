@@ -4,7 +4,8 @@ import { uid } from './uid'
 import { FirebaseStore, firebaseConfigFromEnv } from './firebaseStore'
 import type { Loan, LoanStatus, NewPoolCard, Player, PoolCard, PoolStore, Snapshot } from './types'
 
-const ME_KEY = 'pod-pool/me'
+// Storage keys keep the app's original name so devices that already joined stay signed in.
+export const ME_KEY = 'pod-pool/me'
 
 function createStore(): PoolStore {
   const config = firebaseConfigFromEnv(import.meta.env)

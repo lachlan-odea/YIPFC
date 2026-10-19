@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { usePool } from '../lib/store'
+import { ME_KEY, usePool } from '../lib/store'
 import { errorText, useToast } from '../components/ui'
 
 type InstallPrompt = Event & { prompt: () => Promise<void> }
@@ -87,7 +87,7 @@ export default function MeScreen() {
         <div className="notice">
           {install ? (
             <div className="row between">
-              <span>Install Pod Pool for a full-screen app with the camera one tap away.</span>
+              <span>Install KnowledgePool for a full-screen app with the camera one tap away.</span>
               <button className="btn sm primary" onClick={() => void install.prompt()}>
                 Install
               </button>
@@ -106,7 +106,7 @@ export default function MeScreen() {
           className="btn quiet block"
           onClick={() => {
             if (confirm('Sign out on this device? Your cards stay in the pool.')) {
-              localStorage.removeItem('pod-pool/me')
+              localStorage.removeItem(ME_KEY)
               location.reload()
             }
           }}
@@ -116,7 +116,7 @@ export default function MeScreen() {
       </div>
 
       <p className="small faint">
-        Card data and images come from Scryfall. Pod Pool is unofficial Fan Content permitted under the Wizards of the Coast Fan Content Policy.
+        Card data and images come from Scryfall. KnowledgePool is unofficial Fan Content permitted under the Wizards of the Coast Fan Content Policy.
       </p>
     </div>
   )

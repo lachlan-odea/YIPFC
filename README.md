@@ -1,4 +1,4 @@
-# Pod Pool
+# KnowledgePool
 
 A small installable web app (PWA) for a Commander pod. Everyone adds the spare
 cards they are happy to lend, and anyone in the pod can search the pile and ask
@@ -67,7 +67,7 @@ Timestamps are ISO-8601 strings. Deleting a card also deletes its loans.
 ## Deploy
 
 The app is published with GitHub Pages at
-<https://lachlan-odea.github.io/pod-pool/>. Every push to `main` runs
+<https://lachlan-odea.github.io/KnowledgePool/>. Every push to `main` runs
 [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml), which runs the
 tests, builds, and deploys `dist/`.
 
@@ -76,7 +76,7 @@ GitHub (Settings, Secrets and variables, Actions): `VITE_FIREBASE_API_KEY`,
 `VITE_FIREBASE_PROJECT_ID` and `VITE_FIREBASE_APP_ID`. The next deploy picks
 them up.
 
-The site lives under the `/pod-pool/` path, which is set as `base` in
+The site lives under the `/KnowledgePool/` path, which is set as `base` in
 `vite.config.ts`. If you fork this under a different repo name, change that
 one line. Any other static host works too: build command `npm run build`,
 publish directory `dist`.
@@ -140,7 +140,7 @@ firestore.rules      Firestore security rules (paste into the console or deploy 
 firebase.json        Points the Firebase CLI at the rules file
 ```
 
-Card data and images are from [Scryfall](https://scryfall.com). Pod Pool is
+Card data and images are from [Scryfall](https://scryfall.com). KnowledgePool is
 unofficial Fan Content permitted under the Fan Content Policy. Not approved or
 endorsed by Wizards. Portions of the materials used are property of Wizards of
 the Coast. © Wizards of the Coast LLC.

@@ -2,8 +2,8 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
-// Served from GitHub Pages at https://lachlan-odea.github.io/pod-pool/
-const base = '/pod-pool/'
+// Served from GitHub Pages at https://lachlan-odea.github.io/KnowledgePool/
+const base = '/KnowledgePool/'
 
 export default defineConfig({
   base,
@@ -13,8 +13,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['icons/icon.svg'],
       manifest: {
-        name: 'Pod Pool',
-        short_name: 'Pod Pool',
+        name: 'KnowledgePool',
+        short_name: 'KnowledgePool',
         description: 'The shared pile of spare Commander cards your pod can borrow from each other.',
         theme_color: '#15231d',
         background_color: '#15231d',

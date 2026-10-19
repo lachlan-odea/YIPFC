@@ -97,7 +97,7 @@ export class FirebaseStore implements PoolStore {
           },
           (err) => {
             if (!seen) reject(err)
-            else console.error(`[pod-pool] ${name} listener`, err)
+            else console.error(`[knowledgepool] ${name} listener`, err)
           },
         )
         this.unsubs.push(unsub)
