@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { usePool } from '../lib/store'
 import { achievements, setProgress, type Achievement } from '../lib/achievements'
 import { useSetSizes } from '../lib/sets'
-import { useToast } from './ui'
+import { Sheet, useToast } from './ui'
 
 const SEEN_KEY = 'yipfc/achievements-seen'
 
@@ -21,6 +21,8 @@ export function useAchievements(): Achievement[] {
 export default function Achievements() {
   const list = useAchievements()
   const earned = list.filter((a) => a.earned).length
+  const [openId, setOpenId] = useState<string | null>(null)
+  const open = list.find((a) => a.id === openId) ?? null
   return (
     <section className="stack" style={{ gap: 10 }}>
       <h2 className="section-h">
@@ -28,7 +30,7 @@ export default function Achievements() {
       </h2>
       <div className="ach-grid">
         {list.map((a) => (
-          <div key={a.id} className={`ach ${a.earned ? 'earned' : ''} ${a.pod ? 'pod' : ''}`} title={a.hint}>
+          <button key={a.id} className={`ach ${a.earned ? 'earned' : ''} ${a.pod ? 'pod' : ''}`} onClick={() => setOpenId(a.id)} aria-label={`${a.title}: ${a.hint}`}>
             <span className="ach-icon" aria-hidden="true">
               {a.icon}
             </span>
@@ -41,10 +43,40 @@ export default function Achievements() {
                 <b style={{ width: `${Math.min(100, (a.progress.n / a.progress.of) * 100)}%` }} />
               </i>
             )}
-          </div>
+          </button>
         ))}
       </div>
       <p className="small faint">Pod achievements count everyone's cards together. Tap a badge to see what it takes.</p>
+
+      {open && (
+        <Sheet onClose={() => setOpenId(null)} label={open.title}>
+          <div className="ach-detail">
+            <span className="ach-icon big" aria-hidden="true">
+              {open.icon}
+            </span>
+            <h2>{open.title}</h2>
+            <p className="muted">{open.hint}</p>
+            {open.earned ? (
+              <p className="ach-status earned">{open.pod ? 'The pod has earned this one together.' : 'You have earned this one.'}</p>
+            ) : open.progress ? (
+              <>
+                <p className="ach-status">
+                  {open.progress.n} of {open.progress.of} so far
+                </p>
+                <i className="ach-bar" aria-hidden="true">
+                  <b style={{ width: `${Math.min(100, (open.progress.n / open.progress.of) * 100)}%` }} />
+                </i>
+              </>
+            ) : (
+              <p className="ach-status">Not yet.</p>
+            )}
+            <p className="small faint">{open.pod ? 'Pod achievement: everyone’s cards and loans count.' : 'Personal achievement: only your own cards, loans and decks count.'}</p>
+            <button className="btn quiet block" onClick={() => setOpenId(null)}>
+              Close
+            </button>
+          </div>
+        </Sheet>
+      )}
     </section>
   )
 }

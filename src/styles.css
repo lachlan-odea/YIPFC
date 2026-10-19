@@ -1335,6 +1335,44 @@ img.pip,
   line-height: 1;
 }
 
+.ach-icon.big {
+  font-size: 56px;
+}
+
+.ach-detail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 10px;
+}
+
+.ach-detail h2 {
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.ach-detail .ach-bar {
+  width: min(100%, 320px);
+  height: 8px;
+}
+
+.ach-status {
+  font-weight: 600;
+  color: var(--gold-2);
+}
+
+.ach-status.earned {
+  color: var(--lime);
+}
+
+button.ach {
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+}
+
 .ach-bar {
   display: block;
   height: 5px;
