@@ -2,124 +2,37 @@
 
 **Yes I pay for cardboard.**
 
-A small installable web app (PWA) for a Commander pod. Everyone adds the spare
-cards they are happy to lend, and anyone in the pod can search the pile and ask
-to borrow one. Add cards by pointing your phone camera at them, by searching
-Scryfall, or by pasting a list exported from Moxfield, Archidekt and friends.
+YIPFC is a shared pool for a Commander pod. Everyone adds the spare cards they
+are happy to lend, and anyone in the pod can search the pile and ask to borrow
+one. Changes show up on everyone's phone straight away.
 
-## Run it locally
+## Your pool
 
-```sh
-npm install
-npm run dev
-```
+Each player has their own list of cards they offer. The **Pool** tab shows
+everyone's cards together, sorted by name.
 
-Open the printed URL on your laptop. To try the camera from your phone on the
-same Wi-Fi, use the `Network:` URL. Browsers only allow the camera on `https://`
-or `localhost`, so for phone testing either deploy (below) or run
-`npm run dev -- --https` with a local certificate.
+- Search by name, type or rules text.
+- Filter the list to narrow it down.
+- Tap a card to see its printing, the spare copies you have, and who owns it.
+- Change the printing or quantity of your own cards, or take a card out of the
+  pool.
 
-Until you connect Firebase, the app runs in **this device only** mode: cards and
-loans live in that browser's storage. Everything works, nothing is shared.
+Adding the same card again increases its quantity rather than creating a second
+entry.
 
-## Share it with your pod (Firebase)
+## Adding cards
 
-1. Create a free project at <https://console.firebase.google.com>. Google
-   Analytics is not needed; turn it off when asked.
-2. In the left menu open **Build, Firestore Database** and click **Create
-   database**. Pick a region near your pod and start in **production mode**.
-3. Open the **Rules** tab, replace the contents with
-   [`firestore.rules`](firestore.rules) from this repo, and publish. (Or, with
-   Node installed, run `npx firebase login` then
-   `npx firebase deploy --only firestore:rules --project <your-project-id>`.)
-4. Back at **Project Overview**, click the `</>` web icon to register a web
-   app. Skip Firebase Hosting. It shows a `firebaseConfig` block; you need
-   `apiKey`, `projectId` and `appId`.
-5. Copy `.env.example` to `.env` and paste those three values in.
-6. Rebuild and deploy. Each person opens the URL, types their name once, and
-   installs it to their home screen. Typing a name the pod already knows, on
-   any device, signs in as that player rather than creating a second one, so
-   switching phones is just a matter of entering the same name.
+The **Add** tab has three ways in:
 
-The web config values are public by design; Firestore access is controlled by
-the rules file, not by keeping them secret. The rules deliberately let anyone
-using the app read and write, which is fine for a group of friends who share
-one URL. If you ever want to lock it down, enable Anonymous sign-in under
-**Authentication** and change `isPod()` in `firestore.rules` to
-`request.auth != null`.
-
-Firestore pushes changes live, so when one person adds a card or marks
-something lent, the other phones update within a second. The app also keeps a
-local copy, so the pool still opens with no signal and any changes made offline
-sync when the phone is back online.
-
-The free Spark plan allows 50,000 reads and 20,000 writes a day, which is far
-more than a pod will use.
-
-### Data layout
-
-Three collections, matching the types in [`src/lib/types.ts`](src/lib/types.ts):
-
-| Collection | Document id | Notes |
-| --- | --- | --- |
-| `players` | the player's random id, saved on their phone | `name`, `created_at` |
-| `cards` | `<owner_id>__<scryfall_id>` | one document per owner and printing; adding the same card again bumps `quantity` |
-| `loans` | auto | `card_id`, `borrower_id`, `status`, timestamps |
-
-Timestamps are ISO-8601 strings. Deleting a card also deletes its loans.
-
-## Deploy
-
-The app is published with GitHub Pages at
-<https://lachlan-odea.github.io/YIPFC/>. Every push to `main` runs
-[`.github/workflows/deploy.yml`](.github/workflows/deploy.yml), which runs the
-tests, builds, and deploys `dist/`.
-
-To turn on pod sharing in the deployed app, add three repository secrets in
-GitHub (Settings, Secrets and variables, Actions): `VITE_FIREBASE_API_KEY`,
-`VITE_FIREBASE_PROJECT_ID` and `VITE_FIREBASE_APP_ID`. The next deploy picks
-them up.
-
-The site lives under the `/YIPFC/` path, which is set as `base` in
-`vite.config.ts`. If you fork this under a different repo name, change that
-one line. Any other static host works too: build command `npm run build`,
-publish directory `dist`.
-
-HTTPS is required for the camera and for installing the app; GitHub Pages
-provides it.
-
-## How scanning works
-
-It works like ManaBox: the camera never stops, you just hold cards up one
-after another. For each frame the app crops the title band, boosts the
-contrast and reads it with Tesseract (on-device OCR, nothing is uploaded).
-When a read is confident, or two reads in a row agree, and Scryfall recognises
-the name, the card is added to your pool straight away: the frame flashes
-green, a bubble shows the card, and the phone buzzes (and blips, once you have
-tapped the page so the browser allows sound). It then reads the footer in the
-bottom-left corner for the collector number and set code to pin down the exact
-printing; when that fails, as it does on older frames, Scryfall's default
-printing is used and you can change it afterwards.
-
-Every card lands in a list under the viewfinder. Tap a row to change the
-printing or quantity, or take it back out of the pool. Showing the same card
-again after it has left the frame counts another copy.
-
-The first scan downloads about 4 MB of OCR language data; after that it is
-cached offline.
-
-Tips that make a big difference:
-
-- Fill the frame. The gold dashed box should sit over the card's name.
-- Avoid glare on the title bar. Foils are harder; tilt the card slightly.
-- Hold still for a second. The hint at the top shows what it is reading.
-
-If the camera is blocked, the **Photo** button opens the camera app instead
-and reads the card from the photo.
-
-## Importing lists
-
-Paste or open a `.txt`/`.csv`. These all work:
+- **Scan.** Point the camera at cards one after another. Each card is read from
+  its name and added as soon as it is recognised. See [Scanning](#scanning).
+- **Search.** Look a card up on Scryfall and add it, choosing the printing you
+  have.
+- **Import a list.** Paste or open a `.txt` or `.csv` export from Moxfield,
+  Archidekt or a similar site. Lines are matched against Scryfall in bulk. Set
+  codes and collector numbers are used when they are present, so you get the
+  exact printing. Otherwise the most recent printing is used, and you can change
+  it per card afterwards.
 
 ```
 Sol Ring
@@ -130,31 +43,63 @@ Sol Ring
 Count,Name,Edition,Collector Number   CSV header row
 ```
 
-Lines are resolved in bulk against Scryfall. Set codes and collector numbers are
-used when present so you get the exact printing; otherwise the most recent
-printing is used, and you can change it per card afterwards.
+## Scanning
 
-## Scripts
+Scanning works like ManaBox: the camera stays on and you hold cards up one after
+another. Each card is read on your device and nothing is uploaded.
 
-| Command | What it does |
-| --- | --- |
-| `npm run dev` | Dev server with hot reload |
-| `npm run build` | Regenerates icons, type-checks, builds to `dist/` |
-| `npm run preview` | Serves the production build locally |
-| `npm test` | Runs the list-parser tests |
+- A card is added when the read is confident, or when two reads in a row agree
+  and Scryfall recognises the name. The frame flashes green, a bubble shows the
+  card, and the phone buzzes. A sound plays once you have tapped the page.
+- The bottom-left footer is read for the collector number and set code, to pin
+  down the exact printing. When that fails, the default printing is used and you
+  can change it afterwards.
+- Every scanned card appears in a list under the viewfinder. Tap a row to change
+  its printing or quantity, or to remove it.
+- Showing the same card again counts as another copy.
+- The first scan downloads about 4 MB of text-recognition data. After that it
+  works offline.
 
-## Project layout
+Tips:
 
-```
-src/
-  lib/        Scryfall client, list parser, OCR, and the two data stores
-  screens/    Pool, Add, Loans, You, and the first-run Welcome
-  components/ Scanner, SearchAdd, ImportList, CardDetail, shared UI bits
-brand/        Source artwork: the goblin lock-up and the wordmark
-scripts/      make-icons.mjs renders icons, favicon and in-app brand PNGs from brand/
-firestore.rules      Firestore security rules (paste into the console or deploy with the CLI)
-firebase.json        Points the Firebase CLI at the rules file
-```
+- Fill the frame. The gold dashed box should sit over the card's name.
+- Avoid glare on the title bar. Foils are harder, so tilt the card slightly.
+- Hold still for a second. The hint at the top shows what is being read.
+
+If the camera is blocked, the **Photo** button opens the camera app instead and
+reads the card from a photo.
+
+## Borrowing and loans
+
+Ask to borrow any card in the pool. The owner sees the request and can lend the
+card to you or leave it. The **Loans** tab tracks everything that is moving:
+
+- **Requested:** you have asked for a card, or someone has asked for one of
+  yours.
+- **Lent:** the owner has handed it over. The card is shown as with whoever has
+  it.
+- **Returned** or **declined:** the loan is closed.
+
+Each card can have a note for borrowers, such as "ask before using in a deck",
+shown on the card.
+
+## Players and sign-in
+
+The first time you open the app you type your name. If someone in the pod
+already uses that name, you sign in as them rather than creating a second
+player, so switching phones is just a matter of typing your name again.
+
+The **You** tab shows your name, the cards you offer, what you have out on loan,
+and how much storage the app is using. It also has the steps for installing
+YIPFC to your home screen, which gives a full-screen app with the camera one tap
+away.
+
+## Offline use
+
+The pool keeps a local copy on your phone. It opens with no signal, and anything
+you change offline syncs when you are back online.
+
+## Credits
 
 Card data and images are from [Scryfall](https://scryfall.com). YIPFC is
 unofficial Fan Content permitted under the Fan Content Policy. Not approved or
