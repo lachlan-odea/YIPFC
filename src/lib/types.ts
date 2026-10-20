@@ -1,10 +1,32 @@
+/** A signed-in account. In shared mode the id is the Firebase uid; locally it is a random id. */
+export type AuthUser = {
+  id: string
+  email: string | null
+}
+
+/** A person. The id matches their account id, so one account is one player everywhere. */
 export type Player = {
   id: string
   name: string
+  email?: string
   created_at: string
 }
 
-/** One line in the pool: a printing someone owns spare copies of. */
+/**
+ * A pod: a group of players whose collections are pooled together. A player
+ * can be in several pods; their collection is the same in each.
+ */
+export type Pod = {
+  id: string
+  name: string
+  /** Six-character invite code, also carried in share links. */
+  code: string
+  created_by: string
+  members: string[]
+  created_at: string
+}
+
+/** One line in a collection: a printing someone owns spare copies of. */
 export type PoolCard = {
   id: string
   owner_id: string
@@ -38,6 +60,10 @@ export type Loan = {
   id: string
   card_id: string
   borrower_id: string
+  /** The card's owner, copied so loans can be found by either party. */
+  owner_id?: string
+  /** The pod the request was made in, for context only. */
+  pod_id?: string | null
   status: LoanStatus
   requested_at: string
   updated_at: string
@@ -68,26 +94,50 @@ export type Deck = {
 /** What the import/scan flows hand to the store: a card minus its pool bookkeeping. */
 export type NewPoolCard = Omit<PoolCard, 'id' | 'owner_id' | 'created_at'>
 
+/** Everything the UI needs for the current view: the pod's members and their data, plus your pods. */
 export type Snapshot = {
   players: Player[]
   cards: PoolCard[]
   loans: Loan[]
   decks: Deck[]
+  pods: Pod[]
 }
 
 export interface PoolStore {
   readonly mode: 'local' | 'shared'
+
+  // ---- accounts
+  /** Reports the signed-in user now and whenever it changes. */
+  onAuth(cb: (user: AuthUser | null) => void): () => void
+  /** Local mode ignores email and password and just needs a name. */
+  signUp(name: string, email: string, password: string): Promise<void>
+  signIn(email: string, password: string): Promise<void>
+  signOut(): Promise<void>
+  resetPassword(email: string): Promise<void>
+  upsertPlayer(player: Pick<Player, 'id' | 'name'>): Promise<Player>
+
+  // ---- pods
+  /** Which pod load()/subscribe cover. null shows only your own collection. */
+  setPod(podId: string | null): void
+  createPod(name: string): Promise<Pod>
+  joinPod(code: string): Promise<Pod>
+  leavePod(podId: string): Promise<void>
+  renamePod(podId: string, name: string): Promise<void>
+
+  // ---- data
   load(): Promise<Snapshot>
   subscribe(onChange: () => void): () => void
-  upsertPlayer(player: Pick<Player, 'id' | 'name'>): Promise<Player>
   addCards(ownerId: string, cards: NewPoolCard[]): Promise<PoolCard[]>
   updateCard(id: string, patch: Partial<Pick<PoolCard, 'quantity' | 'notes' | 'layout' | 'image_back'>>): Promise<void>
   removeCard(id: string): Promise<void>
   /** Swap a row for a different printing or finish, keeping owner, quantity and notes; merges into an existing matching row. */
   replaceCard(id: string, next: NewPoolCard): Promise<PoolCard>
-  createLoan(cardId: string, borrowerId: string): Promise<Loan>
+  createLoan(cardId: string, borrowerId: string, ownerId: string, podId: string | null): Promise<Loan>
   setLoanStatus(id: string, status: LoanStatus): Promise<void>
   /** Insert or replace a whole deck. */
   saveDeck(deck: Deck): Promise<void>
   removeDeck(id: string): Promise<void>
+
+  /** Shared mode only: move a pre-accounts player's cards, loans and decks onto the signed-in account. Returns cards moved. */
+  claimLegacy?(oldPlayerId: string): Promise<number>
 }

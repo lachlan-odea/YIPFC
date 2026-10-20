@@ -3,81 +3,149 @@ rules_version = '2';
 // YIPFC rules. Deploy with `npx firebase deploy --only firestore:rules`
 // or paste into Firestore > Rules in the Firebase console.
 //
-// This is a trusted friend group, so access is intentionally simple: anyone
-// who has the app's web config can read and write. The checks below only
-// keep the documents well-formed so a bug in one phone cannot wreck the pool.
-// If you ever want a lock, turn on Firebase Auth (anonymous sign-in is
-// enough) and change the `isPod()` function to `request.auth != null`.
+// Everyone must be signed in (Firebase Auth, email + password). Anyone
+// signed in can read, because the app scopes what it shows by pod membership
+// and the data is friends' spare-card lists. Writes are owner-only: you can
+// change your own player, cards, decks, and the loans you are party to, and
+// you can only add or remove yourself from a pod's member list.
+//
+// "Legacy" ids are the 36-character random ids devices made up before
+// accounts existed. Their rows may be claimed (moved) by any signed-in user,
+// once, via the app's "move my cards" button.
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    function isPod() {
-      return true;
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function me() {
+      return request.auth.uid;
     }
 
     function isIso(v) {
       return v is string && v.size() >= 20;
     }
 
+    function isLegacyId(id) {
+      return id is string && id.size() == 36;
+    }
+
+    function changedOnly(keys) {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(keys);
+    }
+
     match /players/{playerId} {
-      allow read: if isPod();
-      allow create: if isPod()
+      allow read: if signedIn();
+      allow create: if signedIn()
+        && playerId == me()
         && request.resource.data.name is string
         && request.resource.data.name.size() > 0
         && request.resource.data.name.size() <= 60
         && isIso(request.resource.data.created_at);
-      allow update: if isPod()
+      allow update: if signedIn()
+        && playerId == me()
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.name.size() <= 60;
+      allow delete: if signedIn() && (playerId == me() || isLegacyId(playerId));
+    }
+
+    match /pods/{podId} {
+      allow read: if signedIn();
+      allow create: if signedIn()
+        && request.resource.data.created_by == me()
+        && request.resource.data.members == [me()]
         && request.resource.data.name is string
         && request.resource.data.name.size() > 0
         && request.resource.data.name.size() <= 60
-        && request.resource.data.created_at == resource.data.created_at;
-      allow delete: if isPod();
+        && request.resource.data.code is string
+        && request.resource.data.code.size() == 6
+        && isIso(request.resource.data.created_at);
+      // Rename: creator only. Join: add exactly yourself. Leave: remove exactly yourself.
+      allow update: if signedIn() && (
+        (resource.data.created_by == me()
+          && changedOnly(['name'])
+          && request.resource.data.name is string
+          && request.resource.data.name.size() > 0
+          && request.resource.data.name.size() <= 60)
+        || (changedOnly(['members'])
+          && request.resource.data.members.hasAll(resource.data.members)
+          && request.resource.data.members.removeAll(resource.data.members).hasOnly([me()]))
+        || (changedOnly(['members'])
+          && resource.data.members.hasAll(request.resource.data.members)
+          && resource.data.members.removeAll(request.resource.data.members).hasOnly([me()]))
+      );
+      allow delete: if signedIn() && resource.data.created_by == me();
     }
 
     match /cards/{cardId} {
-      allow read: if isPod();
-      allow create: if isPod()
-        && cardId == request.resource.data.owner_id + '__' + request.resource.data.scryfall_id
+      allow read: if signedIn();
+      allow create: if signedIn()
+        && request.resource.data.owner_id == me()
+        && cardId == me() + '__' + request.resource.data.scryfall_id
             + (request.resource.data.get('foil', false) == true ? '__foil' : '')
         && (!('foil' in request.resource.data) || request.resource.data.foil is bool)
         && request.resource.data.name is string
         && request.resource.data.quantity is int
         && request.resource.data.quantity >= 0
         && isIso(request.resource.data.created_at);
-      allow update: if isPod()
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['quantity', 'notes', 'layout', 'image_back'])
+      allow update: if signedIn()
+        && (resource.data.owner_id == me() || isLegacyId(resource.data.owner_id))
+        && changedOnly(['quantity', 'notes', 'layout', 'image_back'])
         && request.resource.data.quantity is int
         && request.resource.data.quantity >= 0
         && request.resource.data.notes is string;
-      allow delete: if isPod();
+      allow delete: if signedIn() && (resource.data.owner_id == me() || isLegacyId(resource.data.owner_id));
+    }
+
+    match /loans/{loanId} {
+      function party() {
+        return resource.data.borrower_id == me() || resource.data.get('owner_id', '') == me();
+      }
+      function legacyLoan() {
+        return isLegacyId(resource.data.borrower_id)
+          || isLegacyId(resource.data.get('owner_id', ''))
+          || !('owner_id' in resource.data);
+      }
+      allow read: if signedIn();
+      allow create: if signedIn()
+        && request.resource.data.borrower_id == me()
+        && request.resource.data.owner_id is string
+        && request.resource.data.status == 'requested'
+        && request.resource.data.card_id is string
+        && isIso(request.resource.data.requested_at)
+        && isIso(request.resource.data.updated_at);
+      allow update: if signedIn() && (
+        (party()
+          && changedOnly(['status', 'updated_at'])
+          && request.resource.data.status in ['requested', 'lent', 'returned', 'declined']
+          && isIso(request.resource.data.updated_at))
+        || (legacyLoan() && changedOnly(['borrower_id', 'owner_id', 'card_id']))
+      );
+      allow delete: if signedIn() && (resource.data.get('owner_id', '') == me() || legacyLoan());
     }
 
     match /decks/{deckId} {
-      allow read: if isPod();
-      allow create, update: if isPod()
-        && request.resource.data.owner_id is string
+      allow read: if signedIn();
+      allow create: if signedIn()
+        && request.resource.data.owner_id == me()
         && request.resource.data.name is string
         && request.resource.data.name.size() <= 80
         && request.resource.data.cards is list
         && request.resource.data.cards.size() <= 500
         && isIso(request.resource.data.created_at)
         && isIso(request.resource.data.updated_at);
-      allow delete: if isPod();
-    }
-
-    match /loans/{loanId} {
-      allow read: if isPod();
-      allow create: if isPod()
-        && request.resource.data.status == 'requested'
-        && request.resource.data.card_id is string
-        && request.resource.data.borrower_id is string
-        && isIso(request.resource.data.requested_at)
-        && isIso(request.resource.data.updated_at);
-      allow update: if isPod()
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updated_at'])
-        && request.resource.data.status in ['requested', 'lent', 'returned', 'declined']
-        && isIso(request.resource.data.updated_at);
-      allow delete: if isPod();
+      allow update: if signedIn() && (
+        (resource.data.owner_id == me()
+          && request.resource.data.owner_id == me()
+          && request.resource.data.name is string
+          && request.resource.data.name.size() <= 80
+          && request.resource.data.cards is list
+          && request.resource.data.cards.size() <= 500)
+        || (isLegacyId(resource.data.owner_id) && changedOnly(['owner_id']) && request.resource.data.owner_id == me())
+      );
+      allow delete: if signedIn() && (resource.data.owner_id == me() || isLegacyId(resource.data.owner_id));
     }
   }
 }

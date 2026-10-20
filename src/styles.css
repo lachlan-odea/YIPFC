@@ -1348,6 +1348,58 @@ img.pip,
   height: 18px;
 }
 
+/* ---------- pods ---------- */
+
+.pod-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--cyan) 45%, transparent);
+  background: linear-gradient(160deg, color-mix(in srgb, var(--cyan) 10%, var(--felt-2)), var(--felt-2) 70%);
+}
+
+.pod-name {
+  font-size: 18px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.pod-code {
+  align-self: flex-start;
+  font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  padding: 8px 14px 8px 18px;
+  border-radius: 12px;
+  background: var(--felt);
+  border: 1px dashed var(--gold);
+  color: var(--gold-2);
+}
+
+.pod-forms {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+@media (min-width: 640px) {
+  .pod-forms {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.input.code {
+  font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  max-width: 160px;
+}
+
 /* ---------- achievements and set completion ---------- */
 
 .ach-grid {

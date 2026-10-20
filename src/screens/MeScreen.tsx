@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { ME_KEY, usePool } from '../lib/store'
+import { usePool } from '../lib/store'
+import PodPanel from '../components/PodPanel'
 import { errorText, useToast } from '../components/ui'
 import Achievements from '../components/Achievements'
 
@@ -71,11 +72,43 @@ export default function MeScreen() {
         </dd>
         <dt>Out on loan</dt>
         <dd>{out}</dd>
+        {pool.user?.email && (
+          <>
+            <dt>Account</dt>
+            <dd>{pool.user.email}</dd>
+          </>
+        )}
         <dt>Pod</dt>
-        <dd>{pool.players.map((p) => p.name).join(', ') || 'Just you so far'}</dd>
+        <dd>{pool.pod ? `${pool.pod.name}: ${pool.players.map((p) => p.name).join(', ')}` : 'Not in a pod yet'}</dd>
         <dt>Storage</dt>
         <dd>{pool.mode === 'shared' ? 'Shared with the pod, live' : 'This device only'}</dd>
       </dl>
+
+      <section className="stack" style={{ gap: 10 }}>
+        <h2 className="section-h">
+          Pods <span>{pool.pods.length}</span>
+        </h2>
+        <PodPanel />
+      </section>
+
+      {pool.legacyId && (
+        <div className="notice">
+          <div className="stack" style={{ gap: 8 }}>
+            <span>This phone added cards before accounts existed. Move them onto this account so they show up again.</span>
+            <button
+              className="btn sm primary"
+              onClick={() =>
+                void pool
+                  .claimLegacy()
+                  .then((n) => toast(`Moved ${n} ${n === 1 ? 'card' : 'cards'} to your account`))
+                  .catch((e) => toast(errorText(e), 'error'))
+              }
+            >
+              Move my old cards here
+            </button>
+          </div>
+        </div>
+      )}
 
       <Achievements />
 
@@ -108,13 +141,10 @@ export default function MeScreen() {
         <button
           className="btn quiet block"
           onClick={() => {
-            if (confirm('Sign out on this device? Your cards stay in the pool.')) {
-              localStorage.removeItem(ME_KEY)
-              location.reload()
-            }
+            if (confirm('Sign out on this device? Your cards stay in your account.')) void pool.signOut().catch((e) => toast(errorText(e), 'error'))
           }}
         >
-          Sign out on this device
+          Sign out
         </button>
       </div>
 

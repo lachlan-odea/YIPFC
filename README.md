@@ -116,37 +116,20 @@ row marks the commander. Decks are shared with the pod, so friends can open
 yours read-only and see what they could lend. **Copy as a decklist** gives the
 plain "1 Card Name" form every deck site accepts.
 
-## Players and sign-in
+## Accounts and pods
 
-The first time you open the app you type your name. If someone in the pod
-already uses that name, you sign in as them rather than creating a second
-player, so switching phones is just a matter of typing your name again.
+You sign in with an email and password. Your account holds your collection:
+the spare cards you offer, your decks and your loans. Sign in on another phone
+and it is all there.
 
-The **You** tab shows your name, the cards you offer, what you have out on loan,
-and how much storage the app is using. It also has the steps for installing
-YIPFC to your home screen, which gives a full-screen app with the camera one tap
-away.
+A **pod** is a group of friends whose collections are pooled. Create one from
+the **You** tab (or on first run) and you get a six-letter code and a share
+link. Friends join by entering the code or tapping the link, and their cards
+appear in the pool at once. You can be in several pods; your collection is the
+same in each, and the pod you are looking at is picked on the You tab. Leaving
+a pod removes your cards from that pod's view and nothing else.
 
-## Achievements and set completion
-
-The **You** tab shows a grid of achievements, from *Dipping your toe in* for
-your first card through lending, borrowing and deck building, with progress
-bars on the ones still to come. Pod achievements, shown in cyan, count
-everyone's cards together: a quarter of a set, half a set, and *Set complete*.
-A toast appears when you earn a new one.
-
-On the **Pool** tab, **Set completion** opens a list of every set the pod has
-cards from, with how many distinct cards you hold between you out of the set's
-printed size. Tap a set to filter the pool to it.
+If you used the app before accounts existed, the You tab offers to move the
+cards this phone added onto your new account.
 
 ## Offline use
-
-The pool keeps a local copy on your phone. It opens with no signal, and anything
-you change offline syncs when you are back online.
-
-## Credits
-
-Card data and images are from [Scryfall](https://scryfall.com). YIPFC is
-unofficial Fan Content permitted under the Fan Content Policy. Not approved or
-endorsed by Wizards. Portions of the materials used are property of Wizards of
-the Coast. © Wizards of the Coast LLC.
