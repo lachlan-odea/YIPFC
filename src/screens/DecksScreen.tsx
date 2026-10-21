@@ -15,6 +15,7 @@ export default function DecksScreen() {
   const [newName, setNewName] = useState('')
   const [creating, setCreating] = useState(false)
   const [stats, setStats] = useState(false)
+  const [showPod, setShowPod] = useState(false)
 
   const mine = pool.decks.filter((d) => d.owner_id === me.id)
   const others = pool.decks.filter((d) => d.owner_id !== me.id)
@@ -96,14 +97,21 @@ export default function DecksScreen() {
 
       {others.length > 0 && (
         <>
-          <h2 className="section-h">
-            Pod decks <span>{others.length}</span>
-          </h2>
-          <div className="deck-list">
-            {others.map((d) => (
-              <DeckTile key={d.id} deck={d} onOpen={() => setOpenId(d.id)} />
-            ))}
+          <div className="row between">
+            <h2 className="section-h" style={{ margin: 0 }}>
+              Pod decks <span>{others.length}</span>
+            </h2>
+            <button className="btn sm quiet" onClick={() => setShowPod((v) => !v)} aria-expanded={showPod}>
+              {showPod ? 'Hide' : 'Show'}
+            </button>
           </div>
+          {showPod && (
+            <div className="deck-list">
+              {others.map((d) => (
+                <DeckTile key={d.id} deck={d} onOpen={() => setOpenId(d.id)} />
+              ))}
+            </div>
+          )}
         </>
       )}
     </div>

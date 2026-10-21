@@ -113,7 +113,8 @@ the copies would come from:
 
 The bar at the top shows the split and the chips filter the list. The star on a
 row marks the commander. Decks are shared with the pod, so friends can open
-yours read-only and see what they could lend. **Copy as a decklist** gives the
+yours read-only and see what they could lend; the pod's decks sit behind a
+**Show** button under your own. **Copy as a decklist** gives the
 plain "1 Card Name" form every deck site accepts.
 
 ## Life counter
