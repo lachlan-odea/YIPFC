@@ -2604,6 +2604,27 @@ button.ach {
   min-height: 0;
 }
 
+/* A narrow seat (six players on a phone): two columns, decks under names, and the body scrolls. */
+@container (max-width: 360px) {
+  .seat-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-auto-rows: auto;
+    height: auto;
+  }
+  .seat-grid .seat-side {
+    grid-column: 1 / -1;
+  }
+  .drawer.full .drawer-body {
+    overflow-y: auto;
+    touch-action: pan-y;
+  }
+}
+
+.name-row.faint {
+  color: var(--ink-3);
+  font-size: 12px;
+}
+
 .seat-side {
   display: flex;
   flex-direction: column;
@@ -2612,6 +2633,17 @@ button.ach {
   min-height: 0;
   overflow-y: auto;
   touch-action: pan-y;
+}
+
+.seat-side .chips {
+  padding: 0;
+  flex: none;
+}
+
+.seat-side .chips .chip {
+  min-height: 28px;
+  padding: 0 10px;
+  font-size: 12px;
 }
 
 .seat-side .swatches {
@@ -2628,6 +2660,8 @@ button.ach {
   padding: 6px 10px;
   font-size: 13px;
 }
+
+
 
 /* The pod's players as a list inside the seat, so it turns with the seat. */
 .name-list {
@@ -2727,6 +2761,89 @@ button.ach {
   box-shadow: 0 0 0 2px var(--gold-2);
 }
 
+/* Whose turn it is, under the dice button: tap to pass. */
+.turn-pill {
+  position: absolute;
+  left: 50%;
+  top: calc(50% + 36px);
+  translate: -50% 0;
+  z-index: 5;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 62vw;
+  padding: 5px 10px 5px 9px;
+  border-radius: 999px;
+  background: var(--felt-2);
+  border: 1px solid color-mix(in srgb, var(--seat, var(--gold)) 65%, var(--line-strong));
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  box-shadow: 0 8px 24px -10px rgba(0, 0, 0, 0.9);
+}
+
+.turn-pill .swatch-dot {
+  background: var(--seat);
+}
+
+.turn-pill b {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.turn-pill span {
+  color: var(--ink-3);
+  font-weight: 500;
+}
+
+.turn-pill svg {
+  width: 16px;
+  height: 16px;
+  color: var(--gold-2);
+  flex: none;
+}
+
+.turn-pill.idle {
+  border-color: var(--gold);
+  color: var(--gold-2);
+}
+
+.life.single .turn-pill {
+  display: none;
+}
+
+/* The active seat: a brighter edge and a ring in its own colour. */
+.pane.active {
+  border-color: color-mix(in srgb, var(--seat) 90%, white);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.06) inset,
+    0 0 0 2px color-mix(in srgb, var(--seat) 75%, transparent),
+    0 0 32px -4px color-mix(in srgb, var(--seat) 90%, transparent);
+}
+
+.turn-tag {
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--cyan);
+  color: var(--copper-ink);
+  font-size: 0.72em;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+/* The commander in play, under the name. */
+.cmdr-tag {
+  pointer-events: none;
+  max-width: 80%;
+  margin-top: -0.5cqh;
+  font-size: clamp(10px, min(4cqw, 5.5cqh), 13px);
+  color: var(--ink-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* The menu button sits where the seats meet; with one seat it drops to the bottom. */
 .life-menu-btn {
   position: absolute;
@@ -2756,6 +2873,66 @@ button.ach {
   top: auto;
   bottom: calc(env(safe-area-inset-bottom) + 24px);
   translate: -50% 0;
+}
+
+/* ---------- game results ---------- */
+
+.stat-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.stat-table th {
+  text-align: left;
+  padding: 4px 6px;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.stat-table td {
+  padding: 7px 6px;
+  border-top: 1px solid var(--line);
+  vertical-align: top;
+}
+
+.stat-table .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.stat-table .up {
+  color: var(--lime);
+}
+
+.stat-table .down {
+  color: var(--rose);
+}
+
+.game-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.game-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 0;
+  border-top: 1px solid var(--line);
+  font-size: 14px;
+}
+
+.game-row strong {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -7,6 +7,8 @@
  * `players` says how many are at the table right now.
  */
 
+import type { GameRecord, SeatResult } from './types'
+
 export const MAX_PLAYERS = 6
 export const STARTING_LIFE = [20, 25, 30, 40] as const
 
@@ -47,6 +49,26 @@ export type Seat = {
   flipped: boolean
   /** Knocked out by hand: conceded, or lost to something the counters do not track. */
   ko: boolean
+  /** The pod player in this seat, when picked from the pod; null for a guest. */
+  playerId: string | null
+  /** The commander they are playing, typed in, so results can be tallied against it. */
+  commanderName: string | null
+}
+
+/**
+ * One thing that happened, with the turn it happened on. Everything the
+ * stats report is derived from this log, so nothing is tallied twice.
+ */
+export type GameEvent = {
+  at: number
+  turn: number
+  seat: number
+  kind: 'life' | 'counter' | 'commander' | 'ko' | 'out' | 'back' | 'start' | 'pass'
+  /** Applied change for life, counter and commander; 1 / 0 for ko on / off; 1 for a pass that began a new turn. */
+  n?: number
+  counter?: Counter
+  /** Attacker for commander damage; previous active seat for a pass. */
+  from?: number
 }
 
 export type Game = {
@@ -58,6 +80,12 @@ export type Game = {
   initiative: number | null
   /** Who went first this game, from the spinner or set by hand. */
   first: number | null
+  /** Turn number: goes up each time play comes back round to whoever went first. 0 until someone starts. */
+  turn: number
+  /** Whose turn it is. */
+  active: number | null
+  startedAt: string | null
+  log: GameEvent[]
 }
 
 const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n))
@@ -72,6 +100,8 @@ function freshSeat(id: number, life: number, prev?: Seat, name?: string): Seat {
     commander: {},
     flipped: prev?.flipped ?? false,
     ko: false,
+    playerId: prev?.playerId ?? null,
+    commanderName: prev?.commanderName ?? null,
   }
 }
 
@@ -89,6 +119,10 @@ export function newGame(players: number, startingLife: number, prev?: Game | nul
     monarch: null,
     initiative: null,
     first: null,
+    turn: 0,
+    active: null,
+    startedAt: null,
+    log: [],
   }
 }
 
@@ -113,13 +147,41 @@ function mapSeat(game: Game, seatId: number, fn: (s: Seat) => Seat): Game {
   return { ...game, seats: game.seats.map((s) => (s.id === seatId ? fn(s) : s)) }
 }
 
+const stamp = (game: Game, seat: number, e: Omit<GameEvent, 'at' | 'turn' | 'seat'>): GameEvent => ({ at: Date.now(), turn: game.turn, seat, ...e })
+
+/**
+ * Change one seat and log it, plus an "out" or "back" event when the change
+ * takes the seat across the line, so the turn they were eliminated is known.
+ */
+function change(game: Game, seatId: number, fn: (s: Seat) => Seat, event: Omit<GameEvent, 'at' | 'turn' | 'seat'> | null): Game {
+  const before = game.seats.find((s) => s.id === seatId)
+  if (!before) return game
+  const next = mapSeat(game, seatId, fn)
+  const after = next.seats.find((s) => s.id === seatId)!
+  const log = [...game.log]
+  if (event) log.push(stamp(game, seatId, event))
+  const wasDead = isDead(before)
+  const nowDead = isDead(after)
+  if (!wasDead && nowDead) log.push(stamp(game, seatId, { kind: 'out' }))
+  if (wasDead && !nowDead) log.push(stamp(game, seatId, { kind: 'back' }))
+  return { ...next, log }
+}
+
 export function adjustLife(game: Game, seatId: number, delta: number): Game {
-  return mapSeat(game, seatId, (s) => ({ ...s, life: clamp(s.life + delta, -999, 999) }))
+  const seat = game.seats.find((s) => s.id === seatId)
+  if (!seat) return game
+  const applied = clamp(seat.life + delta, -999, 999) - seat.life
+  if (applied === 0) return game
+  return change(game, seatId, (s) => ({ ...s, life: s.life + applied }), { kind: 'life', n: applied })
 }
 
 /** Counters never go below zero; the returned game reflects the clamped change. */
 export function adjustCounter(game: Game, seatId: number, counter: Counter, delta: number): Game {
-  return mapSeat(game, seatId, (s) => ({ ...s, counters: { ...s.counters, [counter]: clamp(s.counters[counter] + delta, 0, 999) } }))
+  const seat = game.seats.find((s) => s.id === seatId)
+  if (!seat) return game
+  const applied = clamp(seat.counters[counter] + delta, 0, 999) - seat.counters[counter]
+  if (applied === 0) return game
+  return change(game, seatId, (s) => ({ ...s, counters: { ...s.counters, [counter]: s.counters[counter] + applied } }), { kind: 'counter', counter, n: applied })
 }
 
 /**
@@ -133,11 +195,12 @@ export function adjustCommander(game: Game, seatId: number, fromId: number, delt
   const before = seat.commander[fromId] ?? 0
   const after = clamp(before + delta, 0, 999)
   const applied = after - before
-  const next = mapSeat(game, seatId, (s) => ({ ...s, commander: { ...s.commander, [fromId]: after } }))
-  return alsoLife && applied !== 0 ? adjustLife(next, seatId, -applied) : next
+  if (applied === 0) return game
+  const next = change(game, seatId, (s) => ({ ...s, commander: { ...s.commander, [fromId]: after } }), { kind: 'commander', from: fromId, n: applied })
+  return alsoLife ? adjustLife(next, seatId, -applied) : next
 }
 
-export function updateSeat(game: Game, seatId: number, patch: Partial<Pick<Seat, 'name' | 'colour' | 'flipped'>>): Game {
+export function updateSeat(game: Game, seatId: number, patch: Partial<Pick<Seat, 'name' | 'colour' | 'flipped' | 'playerId' | 'commanderName'>>): Game {
   return mapSeat(game, seatId, (s) => ({ ...s, ...patch }))
 }
 
@@ -157,7 +220,9 @@ export function setFirst(game: Game, seatId: number | null): Game {
 
 /** Knock a seat out by hand, or let them back in. */
 export function toggleKO(game: Game, seatId: number): Game {
-  return mapSeat(game, seatId, (s) => ({ ...s, ko: !s.ko }))
+  const seat = game.seats.find((s) => s.id === seatId)
+  if (!seat) return game
+  return change(game, seatId, (s) => ({ ...s, ko: !s.ko }), { kind: 'ko', n: seat.ko ? 0 : 1 })
 }
 
 export const commanderTotal = (seat: Seat): number => Object.values(seat.commander).reduce((n, d) => n + d, 0)
@@ -166,6 +231,190 @@ export const commanderTotal = (seat: Seat): number => Object.values(seat.command
 export function isDead(seat: Seat): boolean {
   return seat.ko || seat.life <= 0 || seat.counters.poison >= LETHAL.poison || Object.values(seat.commander).some((d) => d >= LETHAL.commander)
 }
+
+/** Seats still in the game. */
+export const alive = (game: Game): Seat[] => activeSeats(game).filter((s) => !isDead(s))
+
+/** One player left standing (or none), with at least two at the table. */
+export const isOver = (game: Game): boolean => game.players > 1 && alive(game).length <= 1
+
+/* ---------- turns ---------- */
+
+/**
+ * Seat ids clockwise around the table, starting from the bottom of the phone:
+ * up the left side, across the top, down the right. Play passes to the left,
+ * which is clockwise seen from above.
+ */
+export function turnOrder(players: number): number[] {
+  const lay = layout(players)
+  const cx = (lay.cols + 2) / 2
+  const cy = (lay.rows + 2) / 2
+  const angle = (c: Cell) => {
+    const dx = c.col + c.colSpan / 2 - cx
+    const dy = c.row + c.rowSpan / 2 - cy
+    const a = Math.atan2(-dx, dy) // 0 at the bottom, growing towards the left
+    return ((a % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI)
+  }
+  return lay.cells
+    .slice()
+    .sort((a, b) => angle(a) - angle(b))
+    .map((c) => c.seat)
+}
+
+/** Turn 1 begins with `seatId`; on a game already under way this only hands them the turn. */
+export function startTurns(game: Game, seatId: number, now = Date.now()): Game {
+  if (game.turn > 0) return { ...game, first: seatId, active: seatId }
+  return {
+    ...game,
+    first: seatId,
+    active: seatId,
+    turn: 1,
+    startedAt: new Date(now).toISOString(),
+    log: [...game.log, { at: now, turn: 1, seat: seatId, kind: 'start' }],
+  }
+}
+
+/**
+ * The next living seat clockwise takes the turn. The turn number only goes up
+ * when play comes back round to the first player's place (whether or not
+ * they are still in). Before anyone has started, starts with whoever goes first.
+ */
+export function passTurn(game: Game, now = Date.now()): Game {
+  if (game.active === null) return startTurns(game, game.first ?? turnOrder(game.players)[0], now)
+  if (isOver(game)) return game
+  const order = turnOrder(game.players)
+  const i = order.indexOf(game.active)
+  const firstAt = order.indexOf(game.first ?? order[0])
+  let next = game.active
+  let newRound = false
+  for (let k = 1; k <= order.length; k++) {
+    const at = (i + k) % order.length
+    if (at === firstAt) newRound = true
+    if (!isDead(game.seats[order[at]])) {
+      next = order[at]
+      break
+    }
+  }
+  const turn = game.turn + (newRound ? 1 : 0)
+  return { ...game, active: next, turn, log: [...game.log, { at: now, turn, seat: next, kind: 'pass', from: game.active, n: newRound ? 1 : 0 }] }
+}
+
+/** Take back the last pass, for when someone tapped it twice. */
+export function undoPass(game: Game): Game {
+  let i = game.log.length - 1
+  while (i >= 0 && game.log[i].kind !== 'pass') i--
+  if (i < 0) return game
+  const ev = game.log[i]
+  return { ...game, active: ev.from ?? game.active, turn: Math.max(1, game.turn - (ev.n ?? 0)), log: game.log.filter((_, k) => k !== i) }
+}
+
+/* ---------- stats ---------- */
+
+export type SeatStats = {
+  gained: number
+  lost: number
+  /** Commander damage dealt to others and taken from them. */
+  dealt: number
+  taken: number
+  turns: number
+  /** The turn they went out, or null if still in. */
+  outTurn: number | null
+}
+
+/** Everything the log says about one seat. */
+export function seatStats(game: Game, seatId: number): SeatStats {
+  const s: SeatStats = { gained: 0, lost: 0, dealt: 0, taken: 0, turns: 0, outTurn: null }
+  for (const e of game.log) {
+    const n = e.n ?? 0
+    if (e.kind === 'life' && e.seat === seatId) {
+      if (n > 0) s.gained += n
+      else s.lost -= n
+    } else if (e.kind === 'commander') {
+      if (e.from === seatId) s.dealt += n
+      if (e.seat === seatId) s.taken += n
+    } else if ((e.kind === 'start' || e.kind === 'pass') && e.seat === seatId) s.turns++
+    else if (e.kind === 'out' && e.seat === seatId) s.outTurn = e.turn
+    else if (e.kind === 'back' && e.seat === seatId) s.outTurn = null
+  }
+  return s
+}
+
+/** The finished game as a record to keep: who played what, who won, and the numbers behind it. */
+export function gameRecord(game: Game, meta: { id: string; pod_id: string | null; created_by: string; winner: number | null; now?: number }): GameRecord {
+  const ended = new Date(meta.now ?? Date.now()).toISOString()
+  const players: SeatResult[] = activeSeats(game).map((seat) => {
+    const st = seatStats(game, seat.id)
+    return {
+      seat: seat.id,
+      name: seat.name,
+      player_id: seat.playerId,
+      commander: seat.commanderName,
+      colour: seat.colour,
+      won: seat.id === meta.winner,
+      out_turn: st.outTurn,
+      final_life: seat.life,
+      life_gained: st.gained,
+      life_lost: st.lost,
+      commander_dealt: st.dealt,
+      commander_taken: st.taken,
+      poison: seat.counters.poison,
+      turns: st.turns,
+    }
+  })
+  return {
+    id: meta.id,
+    pod_id: meta.pod_id,
+    created_by: meta.created_by,
+    played_at: game.startedAt ?? ended,
+    ended_at: ended,
+    turns: game.turn,
+    starting_life: game.startingLife,
+    winner_seat: meta.winner,
+    players,
+  }
+}
+
+export type Tally = {
+  games: number
+  wins: number
+  /** 0..1, or null with no games. */
+  winRate: number | null
+  avgTurns: number | null
+  avgGained: number | null
+  avgLost: number | null
+  avgDealt: number | null
+  /** Average turn eliminated on, over the games that were lost by elimination. */
+  avgOutTurn: number | null
+}
+
+const mean = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null)
+
+/** Roll up every seat result that `pick` accepts across the records. */
+export function tally(records: GameRecord[], pick: (r: SeatResult, g: GameRecord) => boolean): Tally {
+  const hits: Array<{ r: SeatResult; g: GameRecord }> = []
+  for (const g of records) for (const r of g.players) if (pick(r, g)) hits.push({ r, g })
+  const wins = hits.filter((h) => h.r.won).length
+  const outs = hits.map((h) => h.r.out_turn).filter((t): t is number => t !== null)
+  return {
+    games: hits.length,
+    wins,
+    winRate: hits.length ? wins / hits.length : null,
+    avgTurns: mean(hits.map((h) => h.g.turns)),
+    avgGained: mean(hits.map((h) => h.r.life_gained)),
+    avgLost: mean(hits.map((h) => h.r.life_lost)),
+    avgDealt: mean(hits.map((h) => h.r.commander_dealt)),
+    avgOutTurn: mean(outs),
+  }
+}
+
+/** Commanders are typed by hand, so "Atraxa" and "atraxa " are the same one. */
+export const commanderKey = (name: string | null | undefined): string => (name ?? '').trim().toLowerCase().replace(/\s+/g, ' ')
+
+export const commanderTally = (records: GameRecord[], commander: string): Tally => {
+  const key = commanderKey(commander)
+  return tally(records, (r) => !!key && commanderKey(r.commander) === key)
+}
+export const playerTally = (records: GameRecord[], playerId: string): Tally => tally(records, (r) => r.player_id === playerId)
 
 /* ---------- last words ---------- */
 
@@ -290,8 +539,27 @@ export function parseGame(raw: unknown): Game | null {
     for (const c of COUNTERS) counters[c] = typeof s.counters?.[c] === 'number' ? s.counters[c] : 0
     const commander: Record<number, number> = {}
     for (const [k, v] of Object.entries(s.commander ?? {})) if (typeof v === 'number') commander[Number(k)] = v
-    seats.push({ id, name: s.name, colour, life: s.life, counters, commander, flipped: !!s.flipped, ko: !!s.ko })
+    const str = (v: unknown) => (typeof v === 'string' && v ? v : null)
+    seats.push({
+      id,
+      name: s.name,
+      colour,
+      life: s.life,
+      counters,
+      commander,
+      flipped: !!s.flipped,
+      ko: !!s.ko,
+      playerId: str(s.playerId),
+      // Saves from before the field was a commander name carried a deck name instead.
+      commanderName: str(s.commanderName) ?? str((s as { deckName?: unknown }).deckName),
+    })
   }
+  const log: GameEvent[] = Array.isArray(g.log)
+    ? (g.log as unknown[]).filter((e): e is GameEvent => {
+        const x = e as Partial<GameEvent>
+        return !!x && typeof x.at === 'number' && typeof x.turn === 'number' && typeof x.seat === 'number' && typeof x.kind === 'string'
+      })
+    : []
   return {
     players: clamp(Math.round(g.players), 1, MAX_PLAYERS),
     startingLife: g.startingLife,
@@ -299,5 +567,9 @@ export function parseGame(raw: unknown): Game | null {
     monarch: typeof g.monarch === 'number' ? g.monarch : null,
     initiative: typeof g.initiative === 'number' ? g.initiative : null,
     first: typeof g.first === 'number' ? g.first : null,
+    turn: typeof g.turn === 'number' ? g.turn : 0,
+    active: typeof g.active === 'number' ? g.active : null,
+    startedAt: typeof g.startedAt === 'string' ? g.startedAt : null,
+    log,
   }
 }

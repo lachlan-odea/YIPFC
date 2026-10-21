@@ -126,6 +126,21 @@ service cloud.firestore {
       allow delete: if signedIn() && (resource.data.get('owner_id', '') == me() || legacyLoan());
     }
 
+    // Finished games. Anyone in the pod can read them; only whoever saved one can remove it.
+    match /games/{gameId} {
+      allow read: if signedIn();
+      allow create: if signedIn()
+        && request.resource.data.created_by == me()
+        && (request.resource.data.pod_id == null || request.resource.data.pod_id is string)
+        && request.resource.data.players is list
+        && request.resource.data.players.size() >= 1
+        && request.resource.data.players.size() <= 6
+        && request.resource.data.turns is int
+        && isIso(request.resource.data.played_at)
+        && isIso(request.resource.data.ended_at);
+      allow delete: if signedIn() && resource.data.created_by == me();
+    }
+
     match /decks/{deckId} {
       allow read: if signedIn();
       allow create: if signedIn()

@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { LocalStore } from './localStore'
 import { FirebaseStore, firebaseConfigFromEnv } from './firebaseStore'
-import type { AuthUser, Deck, Loan, LoanStatus, NewPoolCard, Player, Pod, PoolCard, PoolStore, Snapshot } from './types'
+import type { AuthUser, Deck, GameRecord, Loan, LoanStatus, NewPoolCard, Player, Pod, PoolCard, PoolStore, Snapshot } from './types'
 
 /** Pre-accounts devices kept a random player id here; it is now only used to offer a one-off migration. */
 export const LEGACY_ME_KEY = 'pod-pool/me'
@@ -26,6 +26,8 @@ type PoolContext = {
   loans: Loan[]
   decks: Deck[]
   pods: Pod[]
+  /** Finished games in this pod (or your own), newest first. */
+  games: GameRecord[]
   /** The pod whose pool is on screen, or null for just your own collection. */
   pod: Pod | null
   me: Player | null
@@ -55,12 +57,14 @@ type PoolContext = {
   setLoanStatus: (id: string, status: LoanStatus) => Promise<void>
   saveDeck: (deck: Deck) => Promise<void>
   removeDeck: (id: string) => Promise<void>
+  saveGame: (record: GameRecord) => Promise<void>
+  removeGame: (id: string) => Promise<void>
   refresh: () => Promise<void>
 }
 
 const Ctx = createContext<PoolContext | null>(null)
 
-const EMPTY: Snapshot = { players: [], cards: [], loans: [], decks: [], pods: [] }
+const EMPTY: Snapshot = { players: [], cards: [], loans: [], decks: [], pods: [], games: [] }
 
 export function PoolProvider({ children }: { children: ReactNode }) {
   const store = useMemo(createStore, [])
@@ -83,6 +87,7 @@ export function PoolProvider({ children }: { children: ReactNode }) {
         loans: [...s.loans],
         decks: [...s.decks],
         pods: [...s.pods],
+        games: [...(s.games ?? [])],
       })
       setError(null)
     } catch (e) {
@@ -149,6 +154,7 @@ export function PoolProvider({ children }: { children: ReactNode }) {
       loans: snap.loans,
       decks: snap.decks,
       pods,
+      games: snap.games,
       pod,
       me,
       legacyId: user && legacyId && legacyId !== user.id ? legacyId : null,
@@ -231,6 +237,14 @@ export function PoolProvider({ children }: { children: ReactNode }) {
       },
       async removeDeck(id) {
         await store.removeDeck(id)
+        await refresh()
+      },
+      async saveGame(record) {
+        await store.saveGame(record)
+        await refresh()
+      },
+      async removeGame(id) {
+        await store.removeGame(id)
         await refresh()
       },
       refresh,
