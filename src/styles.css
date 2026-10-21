@@ -2858,6 +2858,141 @@ button.ach {
   text-overflow: ellipsis;
 }
 
+/*
+ * Pod mode: this phone is one seat. Held sideways, the other players run
+ * along the top as cards and your own seat fills the rest.
+ */
+.life.session {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
+  gap: 6px;
+}
+
+.strip {
+  display: flex;
+  gap: 6px;
+  min-height: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+  align-items: stretch;
+}
+
+.strip::-webkit-scrollbar {
+  display: none;
+}
+
+.strip-card {
+  flex: 1 0 118px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  min-width: 0;
+  padding: 8px 12px;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--seat) 55%, transparent);
+  background: linear-gradient(160deg, color-mix(in srgb, var(--seat) 34%, var(--felt-2)), color-mix(in srgb, var(--seat) 14%, var(--felt-2)) 70%);
+  transition: opacity 0.3s ease, filter 0.3s ease, box-shadow 0.15s ease;
+}
+
+.strip-card.dead {
+  opacity: 0.55;
+  filter: saturate(0.3);
+}
+
+.strip-card.active {
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--seat) 75%, transparent),
+    0 0 24px -4px color-mix(in srgb, var(--seat) 90%, transparent);
+}
+
+.strip-card.empty {
+  flex: 1 1 auto;
+  border-color: var(--line);
+  background: var(--felt-2);
+  color: var(--ink-3);
+  font-size: 13px;
+}
+
+.strip-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.strip-life {
+  font-size: 34px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  font-variation-settings: 'opsz' 96, 'wdth' 90;
+  font-variant-numeric: tabular-nums;
+}
+
+.strip-sub {
+  font-size: 11px;
+  color: var(--ink-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-height: 1.2em;
+}
+
+/* Dice and the turn pill at the end of the strip, so neither covers the seat. */
+.session-bar {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 2px;
+}
+
+.session .session-bar .life-menu-btn,
+.session .session-bar .turn-pill {
+  position: static;
+  translate: none;
+}
+
+.session .session-bar .life-menu-btn {
+  width: 44px;
+  height: 44px;
+}
+
+.session .session-bar .turn-pill {
+  max-width: 160px;
+  font-size: 12px;
+}
+
+.session-main {
+  display: grid;
+  min-height: 0;
+}
+
+.session-main .pane {
+  height: 100%;
+}
+
+/* Portrait: the strip wraps to two rows rather than hiding anyone. */
+@media (orientation: portrait) {
+  .strip {
+    flex-wrap: wrap;
+    overflow: visible;
+  }
+  .strip-card {
+    flex: 1 1 calc(50% - 6px);
+  }
+  .session-bar {
+    flex-direction: row;
+    width: 100%;
+  }
+}
+
 /* The menu button sits where the seats meet; with one seat it drops to the bottom. */
 .life-menu-btn {
   position: absolute;

@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
 import { usePool } from '../lib/store'
-import { Icons, Sheet, useToast } from '../components/ui'
+import { Icons, Sheet, errorText, useToast } from '../components/ui'
 import { EndGameSheet, StatsSheet } from '../components/GameStats'
+import LifeSession, { sessionPodId, useOpenSessions } from './LifeSession'
+import { newSession } from '../lib/session'
 import {
   COUNTERS,
   COUNTER_LABEL,
@@ -41,6 +43,8 @@ import {
 } from '../lib/life'
 
 const KEY = 'yipfc/life'
+/** The pod session this phone is seated at, if any. */
+const SESSION_KEY = 'yipfc/life-session'
 /** Hold a half this long to start stepping by ten, then every HOLD_REPEAT ms. */
 const HOLD_DELAY = 420
 const HOLD_REPEAT = 450
@@ -59,7 +63,7 @@ function loadGame(): Game | null {
   }
 }
 
-function buzz(ms = 8) {
+export function buzz(ms = 8) {
   try {
     navigator.vibrate?.(ms)
   } catch {
@@ -75,6 +79,18 @@ type Spot = { id: number; final: boolean } | null
  * game menu, which is also the way back to the rest of the app.
  */
 export default function LifeScreen({ onExit }: { onExit: () => void }) {
+  const [sessionId, setSessionId] = useState<string | null>(() => localStorage.getItem(SESSION_KEY))
+  const enterSession = useCallback((id: string | null) => {
+    if (id) localStorage.setItem(SESSION_KEY, id)
+    else localStorage.removeItem(SESSION_KEY)
+    setSessionId(id)
+  }, [])
+  if (sessionId) return <LifeSession id={sessionId} onLeave={() => enterSession(null)} onExit={onExit} />
+  return <OnePhone onExit={onExit} onSession={enterSession} />
+}
+
+/** The one-phone table: every seat on this screen, turned to face its player. */
+function OnePhone({ onExit, onSession }: { onExit: () => void; onSession: (id: string) => void }) {
   const pool = usePool()
   const toast = useToast()
   const [game, setGame] = useState<Game>(() => {
@@ -231,6 +247,7 @@ export default function LifeScreen({ onExit }: { onExit: () => void }) {
             setMenu(false)
             setStats(true)
           }}
+          onSession={onSession}
           onExit={onExit}
         />
       )}
@@ -242,7 +259,7 @@ export default function LifeScreen({ onExit }: { onExit: () => void }) {
 
 /* ---------- one seat ---------- */
 
-function Pane({
+export function Pane({
   seat,
   game,
   cell,
@@ -863,6 +880,7 @@ function Menu({
   onUndoPass,
   onEndGame,
   onStats,
+  onSession,
   onExit,
 }: {
   game: Game
@@ -873,6 +891,7 @@ function Menu({
   onUndoPass: () => void
   onEndGame: () => void
   onStats: () => void
+  onSession: (id: string) => void
   onExit: () => void
 }) {
   const passes = game.log.filter((e) => e.kind === 'pass').length
@@ -894,6 +913,8 @@ function Menu({
         <h2 className="title" style={{ fontSize: 22 }}>
           Life counter
         </h2>
+
+        <PodModePicker startingLife={game.startingLife} onSession={onSession} />
 
         <div className="field">
           <label>Players</label>
@@ -972,10 +993,71 @@ function Menu({
   )
 }
 
+/**
+ * One phone, or a phone each? Lists the pod's open tables to join, or starts
+ * one. Single-device mode has no pod to share with, so it only explains.
+ */
+function PodModePicker({ startingLife, onSession }: { startingLife: number; onSession: (id: string) => void }) {
+  const pool = usePool()
+  const toast = useToast()
+  const open = useOpenSessions()
+  const [busy, setBusy] = useState(false)
+  const podId = sessionPodId(pool)
+
+  async function start() {
+    if (!pool.live || !podId || !pool.me) return
+    setBusy(true)
+    try {
+      const id = await pool.live.createSession(newSession(podId, { id: pool.me.id, name: pool.me.name }, startingLife))
+      onSession(id)
+    } catch (e) {
+      toast(errorText(e), 'error')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="field">
+      <label>Where is the counter?</label>
+      <div className="segmented" role="tablist" aria-label="Counter mode">
+        <button role="tab" aria-pressed>
+          One phone
+        </button>
+        <button role="tab" aria-pressed={false} onClick={() => void start()} disabled={busy || !pool.live || !podId}>
+          Pod session
+        </button>
+      </div>
+      {!pool.live ? (
+        <p className="small faint" style={{ marginTop: 6 }}>
+          A pod session puts a seat on every player's phone. It needs the shared pool.
+        </p>
+      ) : !podId ? (
+        <p className="small faint" style={{ marginTop: 6 }}>
+          Join or create a pod on the You tab to share a table across phones.
+        </p>
+      ) : open.length > 0 ? (
+        <div className="stack" style={{ gap: 6, marginTop: 8 }}>
+          {open.map((s) => (
+            <button key={s.id} className="btn block" onClick={() => onSession(s.id)}>
+              Join {pool.playerById(s.host_id)?.name ?? 'someone'}'s table · {s.order.length} {s.order.length === 1 ? 'player' : 'players'} at {s.starting_life}
+            </button>
+          ))}
+          <p className="small faint">Or start your own with Pod session.</p>
+        </div>
+      ) : (
+        <p className="small faint" style={{ marginTop: 6 }}>
+          Pod session starts a table at {startingLife} life that everyone in {pool.pod?.name ?? 'the pod'} can join from this menu on their own phone.
+        </p>
+      )}
+    </div>
+  )
+}
+
 /* ---------- keep the screen on ---------- */
 
 /** Holds a screen wake lock while mounted, taking it again when the tab comes back. */
-function useWakeLock() {
+export function useWakeLock() {
   useEffect(() => {
     if (!('wakeLock' in navigator)) return
     let lock: WakeLockSentinel | null = null

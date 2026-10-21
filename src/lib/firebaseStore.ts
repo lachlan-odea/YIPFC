@@ -32,7 +32,8 @@ import {
   type QuerySnapshot,
   type Unsubscribe,
 } from 'firebase/firestore'
-import type { AuthUser, Deck, GameRecord, Loan, LoanStatus, NewPoolCard, Player, Pod, PoolCard, PoolStore, Snapshot } from './types'
+import type { AuthUser, Deck, GameRecord, LiveSessions, Loan, LoanStatus, NewPoolCard, Player, Pod, PoolCard, PoolStore, Snapshot } from './types'
+import { parseSession, type LiveSession, type SessionEvent, type SessionSeat } from './session'
 
 export type FirebaseConfig = {
   apiKey: string
@@ -409,6 +410,44 @@ export class FirebaseStore implements PoolStore {
 
   async saveGame(record: GameRecord) {
     await setDoc(doc(this.db, 'games', record.id), strip(record))
+  }
+
+  // ---- live pod sessions ---------------------------------------------------------------
+
+  readonly live: LiveSessions = {
+    watchOpenSessions: (podId, cb) =>
+      onSnapshot(
+        query(collection(this.db, 'sessions'), where('pod_id', '==', podId), where('status', '==', 'open')),
+        (qs) => {
+          const list = qs.docs.map((d) => parseSession(d.id, d.data())).filter((s): s is LiveSession => !!s)
+          cb(list.sort((a, b) => b.created_at.localeCompare(a.created_at)))
+        },
+        (err) => console.error('[yipfc] sessions listener', err),
+      ),
+    watchSession: (id, cb) =>
+      onSnapshot(
+        doc(this.db, 'sessions', id),
+        (d) => cb(d.exists() ? parseSession(d.id, d.data()) : null),
+        (err) => {
+          console.error('[yipfc] session listener', err)
+          cb(null)
+        },
+      ),
+    createSession: async (session) => {
+      const ref = doc(collection(this.db, 'sessions'))
+      await setDoc(ref, session)
+      return ref.id
+    },
+    joinSession: async (id, uid, seat: SessionSeat) => {
+      await updateDoc(doc(this.db, 'sessions', id), { [`seats.${uid}`]: seat, order: arrayUnion(uid) })
+    },
+    updateSession: async (id, fields, events: SessionEvent[], replaceLog = false) => {
+      const patch: Record<string, unknown> = { ...fields }
+      if (replaceLog) patch.log = events
+      else if (events.length) patch.log = arrayUnion(...events)
+      if (!Object.keys(patch).length) return
+      await updateDoc(doc(this.db, 'sessions', id), patch)
+    },
   }
 
   async removeGame(id: string) {
