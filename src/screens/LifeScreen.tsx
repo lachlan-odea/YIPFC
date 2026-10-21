@@ -125,6 +125,7 @@ function OnePhone({ onExit, onSession }: { onExit: () => void; onSession: (id: s
   }, [game])
 
   useWakeLock()
+  useOrientationLock('portrait')
 
   useEffect(
     () => () => {
@@ -1052,6 +1053,42 @@ function PodModePicker({ startingLife, onSession }: { startingLife: number; onSe
       )}
     </div>
   )
+}
+
+/* ---------- orientation ---------- */
+
+/**
+ * Ask the OS for an orientation while mounted and let go on unmount. Only
+ * installed or full-screen apps on Android honour it; elsewhere it throws or
+ * is missing, and the screen falls back to drawing itself turned.
+ */
+export function useOrientationLock(kind: 'portrait' | 'landscape') {
+  useEffect(() => {
+    const o = screen.orientation as ScreenOrientation & { lock?: (k: string) => Promise<void>; unlock?: () => void }
+    if (!o?.lock) return
+    o.lock(kind).catch(() => {
+      /* not allowed here: the CSS fallback takes over */
+    })
+    return () => {
+      try {
+        o.unlock?.()
+      } catch {
+        /* fine */
+      }
+    }
+  }, [kind])
+}
+
+/** True while the viewport is taller than it is wide. */
+export function usePortrait(): boolean {
+  const [portrait, setPortrait] = useState(() => matchMedia('(orientation: portrait)').matches)
+  useEffect(() => {
+    const mq = matchMedia('(orientation: portrait)')
+    const on = () => setPortrait(mq.matches)
+    mq.addEventListener('change', on)
+    return () => mq.removeEventListener('change', on)
+  }, [])
+  return portrait
 }
 
 /* ---------- keep the screen on ---------- */
