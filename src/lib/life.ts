@@ -394,9 +394,16 @@ export type Tally = {
   avgDealt: number | null
   /** Average turn eliminated on, over the games that were lost by elimination. */
   avgOutTurn: number | null
+  /** Lifetime totals across every game picked. */
+  totalGained: number
+  totalLost: number
+  totalDealt: number
+  totalTaken: number
+  totalTurns: number
 }
 
-const mean = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null)
+const sum = (xs: number[]) => xs.reduce((a, b) => a + b, 0)
+const mean = (xs: number[]) => (xs.length ? sum(xs) / xs.length : null)
 
 /** Roll up every seat result that `pick` accepts across the records. */
 export function tally(records: GameRecord[], pick: (r: SeatResult, g: GameRecord) => boolean): Tally {
@@ -413,6 +420,43 @@ export function tally(records: GameRecord[], pick: (r: SeatResult, g: GameRecord
     avgLost: mean(hits.map((h) => h.r.life_lost)),
     avgDealt: mean(hits.map((h) => h.r.commander_dealt)),
     avgOutTurn: mean(outs),
+    totalGained: sum(hits.map((h) => h.r.life_gained)),
+    totalLost: sum(hits.map((h) => h.r.life_lost)),
+    totalDealt: sum(hits.map((h) => h.r.commander_dealt)),
+    totalTaken: sum(hits.map((h) => h.r.commander_taken)),
+    totalTurns: sum(hits.map((h) => h.r.turns)),
+  }
+}
+
+export type Lifetime = {
+  games: number
+  /** Turns of play across all games, counting every player's turn. */
+  turns: number
+  gained: number
+  lost: number
+  /** Commander damage dealt (which is also commander damage taken). */
+  commander: number
+  eliminations: number
+  /** Turns the longest game ran, or null with no games. */
+  longest: number | null
+  /** The biggest single-game life loss by one player, with who it was. */
+  biggestLoss: { name: string; commander: string | null; lost: number } | null
+}
+
+/** Everything that has happened across the whole record: the pod's history in numbers. */
+export function lifetime(records: GameRecord[]): Lifetime {
+  const seats = records.flatMap((g) => g.players)
+  let biggest: Lifetime['biggestLoss'] = null
+  for (const r of seats) if (r.life_lost > 0 && (!biggest || r.life_lost > biggest.lost)) biggest = { name: r.name, commander: r.commander, lost: r.life_lost }
+  return {
+    games: records.length,
+    turns: sum(records.map((g) => g.turns)),
+    gained: sum(seats.map((r) => r.life_gained)),
+    lost: sum(seats.map((r) => r.life_lost)),
+    commander: sum(seats.map((r) => r.commander_dealt)),
+    eliminations: seats.filter((r) => r.out_turn !== null).length,
+    longest: records.length ? Math.max(...records.map((g) => g.turns)) : null,
+    biggestLoss: biggest,
   }
 }
 

@@ -15,6 +15,7 @@ import {
   commanderKey,
   commanderTally,
   eloRatings,
+  lifetime,
   placements,
   gameRecord,
   isOver,
@@ -372,6 +373,9 @@ test('gameRecord captures the table, and tallies roll it up by commander and pla
   assert.equal(atraxa.avgTurns, 1.5)
   assert.equal(atraxa.avgLost, 10)
   assert.equal(atraxa.avgOutTurn, 1)
+  assert.equal(atraxa.totalLost, 20, 'lifetime life lost adds up across games')
+  assert.equal(atraxa.totalGained, 0)
+  assert.equal(atraxa.totalTurns, 2, 'no turn in the first game (the other seat started and it ended), two in the second')
   assert.equal(playerTally([rec, rec2], 'p-b').wins, 1)
   assert.equal(commanderTally([rec, rec2], 'nope').games, 0)
   assert.equal(commanderTally([rec, rec2], '').games, 0, 'a blank commander matches nothing')
@@ -451,6 +455,24 @@ test('Elo: a win gains what the loss loses, favourites gain less, and games sum 
   // By player instead of commander.
   const rp = eloRatings([one], (x) => x.player_id)
   assert.equal(rp.get('p-a').rating, ELO_START + 16)
+})
+
+test('lifetime adds up the whole record', () => {
+  assert.deepEqual(lifetime([]), { games: 0, turns: 0, gained: 0, lost: 0, commander: 0, eliminations: 0, longest: null, biggestLoss: null })
+  const a = game('a', '2026-01-01T00:00:00Z', [
+    result(0, 'a', { won: true, life_gained: 12, life_lost: 8, commander_dealt: 21 }),
+    result(1, 'b', { out_turn: 6, life_lost: 61, commander_taken: 21 }),
+  ])
+  const b = { ...game('b', '2026-01-02T00:00:00Z', [result(0, 'a', { life_lost: 3 }), result(1, 'b', { won: true, life_gained: 5 })]), turns: 9 }
+  const t = lifetime([a, b])
+  assert.equal(t.games, 2)
+  assert.equal(t.turns, 14)
+  assert.equal(t.gained, 17)
+  assert.equal(t.lost, 72)
+  assert.equal(t.commander, 21)
+  assert.equal(t.eliminations, 1)
+  assert.equal(t.longest, 9)
+  assert.deepEqual(t.biggestLoss, { name: 'b', commander: 'c-b', lost: 61 })
 })
 
 test('parseGame round-trips a game and rejects junk', () => {

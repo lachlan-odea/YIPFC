@@ -10,6 +10,7 @@ import {
   eloRatings,
   gameRecord,
   isOver,
+  lifetime,
   playerTally,
   seatStats,
   type Game,
@@ -145,6 +146,8 @@ export function StatsSheet({ onClose }: { onClose: () => void }) {
   const toast = useToast()
   const games = pool.games
   const { commanders, players } = useStatsRows()
+  const life = useMemo(() => lifetime(games), [games])
+  const [view, setView] = useState<'record' | 'lifetime'>('record')
 
   return (
     <Sheet onClose={onClose} label="Games and stats">
@@ -153,6 +156,32 @@ export function StatsSheet({ onClose }: { onClose: () => void }) {
           Games &amp; stats
         </h2>
         <p className="subtitle">{pool.pod ? `Everything ${pool.pod.name} has saved.` : 'Games saved on this account.'}</p>
+
+        {games.length > 0 && (
+          <>
+            <h3 className="section-h">All time</h3>
+            <div className="life-tiles">
+              <Tile n={life.games} label={life.games === 1 ? 'game' : 'games'} />
+              <Tile n={life.turns} label="turns played" />
+              <Tile n={life.gained} label="life gained" tone="up" />
+              <Tile n={life.lost} label="life lost" tone="down" />
+              <Tile n={life.commander} label="⚔ damage" />
+              <Tile n={life.eliminations} label={life.eliminations === 1 ? 'elimination' : 'eliminations'} />
+            </div>
+            <p className="small faint">
+              {life.longest !== null && `Longest game: ${life.longest} ${life.longest === 1 ? 'turn' : 'turns'}.`}
+              {life.biggestLoss && ` Most life lost in one game: ${life.biggestLoss.name}${life.biggestLoss.commander ? ` (${life.biggestLoss.commander})` : ''}, ${life.biggestLoss.lost}.`}
+            </p>
+            <div className="segmented" role="tablist" aria-label="Table view" style={{ marginTop: 8 }}>
+              <button role="tab" aria-pressed={view === 'record'} onClick={() => setView('record')}>
+                Record
+              </button>
+              <button role="tab" aria-pressed={view === 'lifetime'} onClick={() => setView('lifetime')}>
+                Lifetime
+              </button>
+            </div>
+          </>
+        )}
 
         {games.length === 0 && (
           <div className="empty">
@@ -166,7 +195,7 @@ export function StatsSheet({ onClose }: { onClose: () => void }) {
             <h3 className="section-h">
               Commanders <span>{commanders.length}</span>
             </h3>
-            <TallyTable rows={commanders} />
+            {view === 'record' ? <TallyTable rows={commanders} /> : <TotalsTable rows={commanders} />}
           </>
         )}
 
@@ -175,7 +204,7 @@ export function StatsSheet({ onClose }: { onClose: () => void }) {
             <h3 className="section-h">
               Players <span>{players.length}</span>
             </h3>
-            <TallyTable rows={players} />
+            {view === 'record' ? <TallyTable rows={players} /> : <TotalsTable rows={players} />}
           </>
         )}
 
@@ -266,19 +295,81 @@ export function TallyTable({ rows, compact = false }: { rows: Row[]; compact?: b
   )
 }
 
+/** Lifetime totals per row: the numbers that only ever go up. */
+function TotalsTable({ rows }: { rows: Row[] }) {
+  const sorted = rows.slice().sort((a, b) => b.t.totalLost + b.t.totalGained - (a.t.totalLost + a.t.totalGained) || a.name.localeCompare(b.name))
+  return (
+    <table className="stat-table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th className="num">Games</th>
+          <th className="num" title="Total life gained">
+            Gained
+          </th>
+          <th className="num" title="Total life lost">
+            Lost
+          </th>
+          <th className="num" title="Total commander damage dealt">
+            ⚔ out
+          </th>
+          <th className="num" title="Total commander damage taken">
+            ⚔ in
+          </th>
+          <th className="num" title="Turns taken">
+            Turns
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        {sorted.map((r) => (
+          <tr key={r.id}>
+            <td>
+              <strong>{r.name}</strong>
+            </td>
+            <td className="num">{r.t.games}</td>
+            <td className="num up">+{r.t.totalGained}</td>
+            <td className="num down">−{r.t.totalLost}</td>
+            <td className="num">{r.t.totalDealt}</td>
+            <td className="num">{r.t.totalTaken}</td>
+            <td className="num">{r.t.totalTurns}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  )
+}
+
+function Tile({ n, label, tone }: { n: number; label: string; tone?: 'up' | 'down' }) {
+  return (
+    <div className={`life-tile ${tone ?? ''}`}>
+      <strong>{n.toLocaleString()}</strong>
+      <span>{label}</span>
+    </div>
+  )
+}
+
 /**
  * The commander table in brief, for the You tab: top few by Elo, with a
- * button to the full sheet. Shows a nudge instead until a game is saved.
+ * button to the full sheet, and your own lifetime line. Shows a nudge
+ * instead until a game is saved.
  */
 export function StatsSummary() {
   const pool = usePool()
   const { commanders } = useStatsRows()
   const [open, setOpen] = useState(false)
+  const me = pool.me ? playerTally(pool.games, pool.me.id) : null
   return (
     <section className="stack" style={{ gap: 10 }}>
       <h2 className="section-h">
         Games &amp; stats <span>{pool.games.length === 1 ? '1 game' : `${pool.games.length} games`}</span>
       </h2>
+      {me && me.games > 0 && (
+        <p className="small muted">
+          You: {me.games} {me.games === 1 ? 'game' : 'games'}, {me.wins} won · <span className="up">+{me.totalGained}</span>{' '}
+          <span className="down">−{me.totalLost}</span> life all time · {me.totalDealt} commander damage dealt
+        </p>
+      )}
       {commanders.length > 0 ? (
         <TallyTable rows={commanders.slice(0, 5)} compact />
       ) : (

@@ -173,7 +173,10 @@ the right way up.
   **Games & stats** rolls them up by commander and by player (Elo rating,
   games, wins, win rate, average length, average life lost) and lists recent
   games. It is in the game menu, on the **You** tab, and behind **Records**
-  on the Decks tab.
+  on the Decks tab. An **All time** row at the top totals the whole record
+  (games, turns, life gained and lost, commander damage, eliminations), and a
+  **Lifetime** view of the tables shows each commander's and player's running
+  totals; the You tab also shows your own lifetime line.
 - **Elo.** Everyone starts at 1000. Each saved game is scored as a match
   between every pair of players, by finishing order (the winner first, then
   whoever lasted longest), with the usual K of 32 shared across the

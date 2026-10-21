@@ -2899,7 +2899,7 @@ button.ach {
 
 .stat-table th {
   text-align: left;
-  padding: 4px 6px;
+  padding: 4px 5px;
   font-size: 11px;
   font-weight: 500;
   letter-spacing: 0.06em;
@@ -2908,7 +2908,7 @@ button.ach {
 }
 
 .stat-table td {
-  padding: 7px 6px;
+  padding: 7px 5px;
   border-top: 1px solid var(--line);
   vertical-align: top;
 }
@@ -2921,6 +2921,57 @@ button.ach {
 
 .stat-table .up {
   color: var(--lime);
+}
+
+/* All-time totals, as a row of tiles at the top of the stats sheet. */
+.life-tiles {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.life-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: var(--felt-2);
+  min-width: 0;
+}
+
+.life-tile strong {
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  font-variation-settings: 'opsz' 96, 'wdth' 90;
+  font-variant-numeric: tabular-nums;
+}
+
+.life-tile span {
+  font-size: 11px;
+  color: var(--ink-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.life-tile.up strong {
+  color: var(--lime);
+}
+
+.life-tile.down strong {
+  color: var(--rose);
+}
+
+.small .up {
+  color: var(--lime);
+}
+
+.small .down {
+  color: var(--rose);
 }
 
 .stat-table .elo {
