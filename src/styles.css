@@ -2978,19 +2978,43 @@ button.ach {
   height: 100%;
 }
 
-/* Portrait: the strip wraps to two rows rather than hiding anyone. */
-@media (orientation: portrait) {
-  .strip {
-    flex-wrap: wrap;
-    overflow: visible;
-  }
-  .strip-card {
-    flex: 1 1 calc(50% - 6px);
-  }
-  .session-bar {
-    flex-direction: row;
-    width: 100%;
-  }
+.strip-wrap {
+  display: contents;
+}
+
+/*
+ * Sideways: the phone is still portrait (no OS rotation available), so the
+ * whole screen is drawn turned a quarter clockwise. The strip becomes a
+ * column down the right edge, its content rotated with the same container-
+ * unit trick the seats use, and the seat itself takes rotate 90.
+ */
+.life.session.sideways {
+  grid-template-rows: minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) 112px;
+}
+
+.session.sideways .strip-wrap {
+  display: block;
+  position: relative;
+  container-type: size;
+  min-height: 0;
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.session.sideways .session-main {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.session.sideways .strip {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  translate: -50% -50%;
+  width: 100cqh;
+  height: 100cqw;
+  rotate: 90deg;
 }
 
 /* The menu button sits where the seats meet; with one seat it drops to the bottom. */

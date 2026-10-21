@@ -4,7 +4,7 @@ import { Icons, Sheet, errorText, useToast } from '../components/ui'
 import { EndGameSheet, StatsSheet } from '../components/GameStats'
 import { SEAT_COLOURS, activeSeats, alive, isDead, isOver, passTurn, startTurns, undoPass, type Game } from '../lib/life'
 import { freshSessionSeat, resetFields, sessionPatch, toGame, type LiveSession } from '../lib/session'
-import { Pane, buzz, useWakeLock } from './LifeScreen'
+import { Pane, buzz, useOrientationLock, usePortrait, useWakeLock } from './LifeScreen'
 
 /**
  * Pod mode: this phone is one seat at the table. Held sideways, the other
@@ -28,6 +28,9 @@ export default function LifeSession({ id, onLeave, onExit }: { id: string; onLea
   const joining = useRef(false)
 
   useWakeLock()
+  useOrientationLock('landscape')
+  // No OS rotation (a locked phone, iOS Safari): draw the screen turned a quarter so it is sideways anyway.
+  const sideways = usePortrait()
 
   // Follow the session. Our own local edits are applied optimistically and then overwritten by the next snapshot.
   useEffect(() => {
@@ -144,7 +147,8 @@ export default function LifeSession({ id, onLeave, onExit }: { id: string; onLea
   }
 
   return (
-    <div className="life session" onContextMenu={(e) => e.preventDefault()}>
+    <div className={`life session ${sideways ? 'sideways' : ''}`} onContextMenu={(e) => e.preventDefault()}>
+      <div className="strip-wrap">
       <div className="strip" aria-label="Other players">
         {others.map((s) => {
           const dead = isDead(s)
@@ -186,14 +190,15 @@ export default function LifeSession({ id, onLeave, onExit }: { id: string; onLea
           )}
         </div>
       </div>
+      </div>
 
       <div className="session-main">
         {mySeat ? (
           <Pane
             seat={mySeat}
             game={game}
-            cell={{ seat: mySeat.id, row: 1, col: 1, rowSpan: 1, colSpan: 1, rotate: 0 }}
-            lay={{ rows: 1, cols: 1, cells: [{ seat: mySeat.id, row: 1, col: 1, rowSpan: 1, colSpan: 1, rotate: 0 }] }}
+            cell={{ seat: mySeat.id, row: 1, col: 1, rowSpan: 1, colSpan: 1, rotate: sideways ? 90 : 0 }}
+            lay={{ rows: 1, cols: 1, cells: [{ seat: mySeat.id, row: 1, col: 1, rowSpan: 1, colSpan: 1, rotate: sideways ? 90 : 0 }] }}
             spot={null}
             onGame={onGame}
           />
