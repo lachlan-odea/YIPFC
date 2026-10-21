@@ -20,6 +20,8 @@ export const Icons = {
   close: () => svg(<path d="M6 6l12 12M18 6 6 18" />),
   check: () => svg(<path d="m5 12 5 5L20 7" />),
   back: () => svg(<path d="M15 5l-7 7 7 7" />),
+  heart: () => svg(<path d="M12 20.5s-7.5-4.6-7.5-10.3A4.2 4.2 0 0 1 12 7.6a4.2 4.2 0 0 1 7.5 2.6c0 5.7-7.5 10.3-7.5 10.3z" />),
+  dice: () => svg(<><rect x="4" y="4" width="16" height="16" rx="3.5" /><path d="M8.5 8.5h.01M15.5 8.5h.01M12 12h.01M8.5 15.5h.01M15.5 15.5h.01" /></>),
 }
 
 /* ---------- mana pips ---------- */

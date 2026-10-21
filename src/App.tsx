@@ -10,14 +10,16 @@ import PodPanel from './components/PodPanel'
 import { errorText, useToast } from './components/ui'
 import MeScreen from './screens/MeScreen'
 import Welcome from './screens/Welcome'
+import LifeScreen from './screens/LifeScreen'
 
-type Tab = 'pool' | 'add' | 'decks' | 'loans' | 'me'
+type Tab = 'pool' | 'add' | 'decks' | 'loans' | 'life' | 'me'
 
 const TABS: Array<{ id: Tab; label: string; icon: () => JSX.Element }> = [
   { id: 'pool', label: 'Pool', icon: Icons.pool },
   { id: 'add', label: 'Add', icon: Icons.add },
   { id: 'decks', label: 'Decks', icon: Icons.decks },
   { id: 'loans', label: 'Loans', icon: Icons.loans },
+  { id: 'life', label: 'Life', icon: Icons.heart },
 ]
 
 export default function App() {
@@ -57,6 +59,17 @@ export default function App() {
   const waitingOnMe = pool.loans.filter(
     (l) => l.status === 'requested' && pool.cards.find((c) => c.id === l.card_id)?.owner_id === pool.me!.id,
   ).length
+
+  // The life counter takes the whole screen, turned to face everyone at the table.
+  if (tab === 'life') {
+    return (
+      <ToastProvider>
+        <AchievementWatcher />
+        <JoinWatcher />
+        <LifeScreen onExit={() => setTab('pool')} />
+      </ToastProvider>
+    )
+  }
 
   return (
     <ToastProvider>
