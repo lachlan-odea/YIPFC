@@ -748,22 +748,29 @@ img.pip,
   border: 1px solid rgba(40, 215, 240, 0.5);
 }
 
-/* Double-faced card flip in the detail sheet. */
+/*
+ * Double-faced card flip in the detail sheet. The front face stays in flow and
+ * sets the box's size; the back is laid over it. The images are .card-face,
+ * not .face: that name belongs to the life counter's turned seat panel, whose
+ * rules once leaked onto these and blew the card up to viewport size.
+ */
 .flip {
   position: relative;
   display: block;
   width: 100%;
+  min-width: 0;
   padding: 0;
   border: 0;
   background: none;
   perspective: 1200px;
   cursor: pointer;
+  text-align: center;
 }
 
 .flip-inner {
   display: block;
   position: relative;
-  aspect-ratio: 63 / 88;
+  width: 100%;
   transition: transform 520ms cubic-bezier(0.4, 0.2, 0.2, 1);
   transform-style: preserve-3d;
 }
@@ -772,18 +779,25 @@ img.pip,
   transform: rotateY(180deg);
 }
 
-.flip .face {
-  position: absolute;
-  inset: 0;
+.flip .card-face {
+  display: block;
   width: 100%;
-  height: 100%;
   border-radius: var(--radius-card);
   box-shadow: 0 10px 24px -10px rgba(0, 0, 0, 0.8);
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
 }
 
-.flip .face.back {
+.flip .card-face.front {
+  position: relative;
+  height: auto;
+}
+
+.flip .card-face.back {
+  position: absolute;
+  inset: 0;
+  height: 100%;
+  object-fit: cover;
   transform: rotateY(180deg);
 }
 
