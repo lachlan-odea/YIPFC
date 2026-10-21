@@ -2113,7 +2113,11 @@ button.ach {
   animation: rise 0.25s ease;
 }
 
-/* Grab bars on the seat's own left and bottom edges: drag inwards to open its panel. */
+/*
+ * Grab bars: one along the seat's top edge (counters) and one on each side
+ * edge that faces another seat (commander damage), so swipes never start on
+ * the phone's own edge where the system's gestures live.
+ */
 .swipe-edge {
   position: absolute;
   z-index: 1;
@@ -2128,45 +2132,77 @@ button.ach {
   background: color-mix(in srgb, var(--ink) 35%, transparent);
 }
 
-.swipe-edge.left {
-  left: 0;
+.swipe-edge.side {
   top: 0;
   bottom: 0;
   width: 30px;
-  justify-content: flex-start;
-  padding-left: 6px;
 }
 
-.swipe-edge.left i {
+.swipe-edge.side i {
   width: 4px;
   height: 36px;
 }
 
-.swipe-edge.bottom {
+.swipe-edge.side.left {
   left: 0;
-  right: 0;
-  bottom: 0;
-  height: 30px;
-  align-items: flex-end;
-  padding-bottom: 6px;
+  justify-content: flex-start;
+  padding-left: 6px;
 }
 
-.swipe-edge.bottom i {
+.swipe-edge.side.right {
+  right: 0;
+  justify-content: flex-end;
+  padding-right: 6px;
+}
+
+/* No inner side: the bar sits in from the phone's edge, clear of the back gesture. */
+.swipe-edge.side.outer {
+  width: 60px;
+}
+
+.swipe-edge.side.outer.left {
+  padding-left: 28px;
+}
+
+.swipe-edge.side.outer.right {
+  padding-right: 28px;
+}
+
+.swipe-edge.top {
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 30px;
+  align-items: flex-start;
+  padding-top: 6px;
+}
+
+.swipe-edge.top i {
   width: 36px;
   height: 4px;
 }
 
-.swipe-edge.left:active {
+/* A full-width seat's top edge runs under the centre button: keep the bar off to one side. */
+.swipe-edge.top.full {
+  justify-content: flex-start;
+  padding-left: 28%;
+}
+
+.swipe-edge.side.left:active {
   background: linear-gradient(90deg, rgba(255, 255, 255, 0.1), transparent);
 }
 
-.swipe-edge.bottom:active {
-  background: linear-gradient(0deg, rgba(0, 0, 0, 0.2), transparent);
+.swipe-edge.side.right:active {
+  background: linear-gradient(270deg, rgba(255, 255, 255, 0.1), transparent);
+}
+
+.swipe-edge.top:active {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.1), transparent);
 }
 
 /*
  * Drawers live inside the face, so they read the same way up as the seat.
- * Damage slides in from the left, counters up from the bottom, and the seat
+ * Damage slides in from the side, counters down from the top, and the seat
  * card sits in the middle; the rest of the seat dims and closes them on tap.
  */
 .drawer-scrim {
@@ -2197,16 +2233,31 @@ button.ach {
   animation: from-left 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
-.drawer-scrim:has(.drawer.bottom) {
-  align-items: flex-end;
+.drawer-scrim:has(.drawer.top) {
+  align-items: flex-start;
 }
 
-.drawer.bottom {
+.drawer.top {
+  position: relative;
   width: 100%;
   max-height: 100%;
-  border-radius: 20px 20px 0 0;
-  border-top: 1px solid var(--line-strong);
-  animation: from-bottom 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
+  padding-bottom: 12px;
+  border-radius: 0 0 20px 20px;
+  border-bottom: 1px solid var(--line-strong);
+  animation: from-top 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+/* Grip line along the bottom of the top drawer: the edge you drag back up. */
+.drawer.top::after {
+  content: '';
+  position: absolute;
+  bottom: 4px;
+  left: 50%;
+  translate: -50% 0;
+  width: 40px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--line-strong);
 }
 
 .drawer-scrim:has(.drawer.centre) {
@@ -2237,9 +2288,9 @@ button.ach {
   }
 }
 
-@keyframes from-bottom {
+@keyframes from-top {
   from {
-    translate: 0 100%;
+    translate: 0 -100%;
   }
 }
 
@@ -2264,23 +2315,6 @@ button.ach {
   white-space: nowrap;
 }
 
-/* Grip line on the bottom drawer: it is the thing you drag back down. */
-.drawer.bottom .drawer-head {
-  padding-top: 12px;
-}
-
-.drawer.bottom .drawer-head::before {
-  content: '';
-  position: absolute;
-  top: 4px;
-  left: 50%;
-  translate: -50% 0;
-  width: 40px;
-  height: 4px;
-  border-radius: 2px;
-  background: var(--line-strong);
-}
-
 .drawer-body {
   flex: 1;
   min-height: 0;
@@ -2293,7 +2327,7 @@ button.ach {
   scrollbar-width: thin;
 }
 
-.drawer.bottom .drawer-body,
+.drawer.top .drawer-body,
 .drawer.centre .drawer-body {
   flex: 0 1 auto;
 }

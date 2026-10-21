@@ -128,8 +128,9 @@ the right way up.
   Hold to change by ten at a time. A bubble next to the total shows the running
   change for a moment, so "−7" is easy to confirm.
 - Each panel has drawers that open the same way up as the seat. Swipe in from
-  the panel's left edge for **commander damage**, a tile per opponent (it comes
-  off life as well). Swipe up from its bottom edge for **counters**: poison,
+  the panel's inside edge, the one facing the other players rather than the
+  edge of the phone, for **commander damage**, a tile per opponent (it comes
+  off life as well). Swipe down from its top edge for **counters**: poison,
   energy, experience and commander tax, plus the monarch and initiative
   markers. Tap the name to pick who sits there from the pod's players (or type a
   guest's name), choose a colour, or turn the seat around for someone sitting
@@ -138,8 +139,8 @@ the right way up.
   Hold either to run. The **K.O.** button at the foot of the counters
   drawer knocks the seat out whatever its life total, for a concession or a
   loss the counters do not track, and turns into **Back in the game** to undo
-  it. Drawers close with a tap on the rest of the panel or a swipe back the
-  way they came.
+  it. Drawers close with a swipe down, a tap on the rest of the panel, or a
+  drag back the way they came.
 - The dice button in the middle opens the game menu: number of players (one to
   six), starting life (20, 25, 30, 40 or your own), a spinner to pick who goes
   first (the winning seat keeps a **1st** marker by their name for the rest of

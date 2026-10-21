@@ -11,6 +11,7 @@ import {
   adjustLife,
   commanderTotal,
   inProgress,
+  innerSides,
   isDead,
   layout,
   newGame,
@@ -185,6 +186,27 @@ test('layouts seat everyone once and face the sides of the phone', () => {
   const five = layout(5)
   assert.equal(five.cells[4].rotate, 0)
   assert.equal(five.cells[4].colSpan, 2)
+})
+
+test('innerSides names the side edges that face another seat, not the phone edge', () => {
+  const four = layout(4)
+  // Left column turned 90: own left is along the phone's top, own right along its bottom.
+  assert.deepEqual(innerSides(four.cells[0], four), ['right'], 'top-left faces the row below with its right')
+  assert.deepEqual(innerSides(four.cells[2], four), ['left'], 'bottom-left faces the row above with its left')
+  assert.deepEqual(innerSides(four.cells[1], four), ['left'], 'top-right (270) faces the row below with its left')
+  assert.deepEqual(innerSides(four.cells[3], four), ['right'])
+  // A flipped seat swaps which edge is which.
+  assert.deepEqual(innerSides(four.cells[0], four, 270), ['left'])
+  const six = layout(6)
+  assert.deepEqual(innerSides(six.cells[2], six), ['left', 'right'], 'middle row has seats on both sides')
+  assert.deepEqual(innerSides(six.cells[4], six), ['left'])
+  // Full-width seats have no inner side.
+  const two = layout(2)
+  assert.deepEqual(innerSides(two.cells[0], two), [])
+  assert.deepEqual(innerSides(two.cells[1], two), [])
+  const three = layout(3)
+  assert.deepEqual(innerSides(three.cells[2], three), [])
+  assert.deepEqual(innerSides(layout(1).cells[0], layout(1)), [])
 })
 
 test('parseGame round-trips a game and rejects junk', () => {

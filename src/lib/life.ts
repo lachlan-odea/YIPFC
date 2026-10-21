@@ -255,6 +255,24 @@ export function layout(players: number): Layout {
   }
 }
 
+export type Side = 'left' | 'right'
+
+/**
+ * Which of a seat's own side edges face another seat rather than the edge of
+ * the phone. Phone edges are where the system's back and home gestures live,
+ * so swipes should start from these instead. Empty for a seat that spans the
+ * whole width (two players, or the bottom seat with three or five).
+ */
+export function innerSides(cell: Cell, lay: Layout, rotate: Cell['rotate'] = cell.rotate): Side[] {
+  const above = cell.row > 1
+  const below = cell.row + cell.rowSpan - 1 < lay.rows
+  const leftOf = cell.col > 1
+  const rightOf = cell.col + cell.colSpan - 1 < lay.cols
+  // A seat turned 90 has its own left along the phone's top; 270 the reverse; 180 swaps left and right.
+  const [l, r] = rotate === 90 ? [above, below] : rotate === 270 ? [below, above] : rotate === 180 ? [rightOf, leftOf] : [leftOf, rightOf]
+  return [...(l ? (['left'] as const) : []), ...(r ? (['right'] as const) : [])]
+}
+
 /* ---------- persistence ---------- */
 
 /** Rebuild a Game from stored JSON, or null if it is not one we recognise. */

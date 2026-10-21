@@ -14,6 +14,7 @@ import {
   adjustLife,
   commanderTotal,
   inProgress,
+  innerSides,
   isDead,
   lastWords,
   layout,
@@ -28,6 +29,7 @@ import {
   type Cell,
   type Counter,
   type Game,
+  type Layout,
   type Seat,
   type SeatColour,
 } from '../lib/life'
@@ -146,6 +148,7 @@ export default function LifeScreen({ onExit }: { onExit: () => void }) {
             seat={seat}
             game={game}
             cell={cell}
+            lay={lay}
             spot={spot?.id === seat.id ? spot : null}
             onGame={setGame}
           />
@@ -165,12 +168,14 @@ function Pane({
   seat,
   game,
   cell,
+  lay,
   spot,
   onGame,
 }: {
   seat: Seat
   game: Game
   cell: Cell
+  lay: Layout
   spot: Spot
   onGame: (fn: (g: Game) => Game) => void
 }) {
@@ -200,8 +205,15 @@ function Pane({
 
   const rotate = ((cell.rotate + (seat.flipped ? 180 : 0)) % 360) as Cell['rotate']
   const hasOpponents = game.players > 1
-  const leftEdge = useSwipeEdge(rotate, 'right', () => setDrawer(hasOpponents ? 'damage' : 'counters'), () => bump(-1))
-  const bottomEdge = useSwipeEdge(rotate, 'up', () => setDrawer('counters'), (left) => bump(left ? -1 : 1))
+  const openDamage = () => setDrawer(hasOpponents ? 'damage' : 'counters')
+  const topEdge = useSwipeEdge(rotate, 'down', () => setDrawer('counters'), (left) => bump(left ? -1 : 1))
+  const leftIn = useSwipeEdge(rotate, 'right', openDamage, () => bump(-1))
+  const rightIn = useSwipeEdge(rotate, 'left', openDamage, () => bump(1))
+  // Damage opens from the side that faces the table. A full-width seat has none, so it
+  // falls back to both sides with the grab bar held in from the phone's edge.
+  const inner = innerSides(cell, lay, rotate)
+  const sides = inner.length ? inner : (['left', 'right'] as const)
+  const fullWidth = cell.colSpan === lay.cols
   const cmdr = commanderTotal(seat)
   const paneStyle = {
     gridRow: `${cell.row} / span ${cell.rowSpan}`,
@@ -218,12 +230,19 @@ function Pane({
       <div className={`face r${rotate}`}>
         <button className="half minus" {...hold(-1)} aria-label={`${seat.name} loses life`} />
         <button className="half plus" {...hold(1)} aria-label={`${seat.name} gains life`} />
-        <div className="swipe-edge left" {...leftEdge} title="Swipe in for commander damage">
+        <div className={`swipe-edge top ${fullWidth ? 'full' : ''}`} {...topEdge} title="Swipe down for counters">
           <i aria-hidden="true" />
         </div>
-        <div className="swipe-edge bottom" {...bottomEdge} title="Swipe up for counters">
-          <i aria-hidden="true" />
-        </div>
+        {sides.map((side) => (
+          <div
+            key={side}
+            className={`swipe-edge side ${side} ${inner.length ? '' : 'outer'}`}
+            {...(side === 'left' ? leftIn : rightIn)}
+            title="Swipe in for commander damage"
+          >
+            <i aria-hidden="true" />
+          </div>
+        ))}
 
         <div className="pane-mid">
           <button className="pane-name" onClick={() => setDrawer('seat')} title="Name and colour">
@@ -344,17 +363,19 @@ function useHold(apply: (n: number) => void, { holdStep = HOLD_STEP, repeat: eve
  * `dir` fires onSwipe; a plain tap fires onTap with whether it was on the left.
  * The face may be turned, so pointer positions are mapped into its frame.
  */
-function useSwipeEdge(rotate: Cell['rotate'], dir: Swipe, onSwipe: () => void, onTap: (leftHalf: boolean) => void) {
+function useSwipeEdge(rotate: Cell['rotate'], dir: Swipe, onSwipe: () => void, onTap: (leftHalf: boolean) => void, capture = true) {
   const start = useRef<{ x: number; y: number; w: number } | null>(null)
   const swiped = useRef(false)
   const point = (e: ReactPointerEvent<HTMLElement>) => localPoint(e.currentTarget.getBoundingClientRect(), rotate, e.clientX, e.clientY)
   return {
     onPointerDown: (e: ReactPointerEvent<HTMLElement>) => {
       if (e.button !== 0) return
-      try {
-        e.currentTarget.setPointerCapture(e.pointerId)
-      } catch {
-        /* fine */
+      if (capture) {
+        try {
+          e.currentTarget.setPointerCapture(e.pointerId)
+        } catch {
+          /* fine */
+        }
       }
       start.current = point(e)
       swiped.current = false
@@ -408,8 +429,9 @@ type DrawerProps = { seat: Seat; game: Game; rotate: Cell['rotate']; onGame: (fn
 
 /**
  * A panel inside the seat's face, so it reads the same way up as the seat.
- * Slides in from `side`; closes on a tap on the dimmed rest of the seat, the
- * Escape key, or a drag on its header back the way it came.
+ * Slides in from `side`; closes on a swipe down anywhere on it (once its body
+ * is scrolled to the top), a tap on the dimmed rest of the seat, the Escape
+ * key, or a drag on its header back the way it came.
  */
 function Drawer({
   side,
@@ -419,7 +441,7 @@ function Drawer({
   children,
   footer,
 }: {
-  side: 'left' | 'bottom' | 'centre'
+  side: 'left' | 'top' | 'centre'
   title: string
   rotate: Cell['rotate']
   onClose: () => void
@@ -427,7 +449,17 @@ function Drawer({
   /** Pinned under the scrolling body, for the one action that must stay reachable. */
   footer?: ReactNode
 }) {
-  const closeDrag = useSwipeEdge(rotate, side === 'left' ? 'left' : 'down', onClose, () => {})
+  const body = useRef<HTMLDivElement>(null)
+  const closeDrag = useSwipeEdge(rotate, side === 'left' ? 'left' : 'up', onClose, () => {})
+  const swipeDown = useSwipeEdge(
+    rotate,
+    'down',
+    () => {
+      if ((body.current?.scrollTop ?? 0) <= 0) onClose()
+    },
+    () => {},
+    false,
+  )
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
     document.addEventListener('keydown', onKey)
@@ -435,11 +467,13 @@ function Drawer({
   }, [onClose])
   return (
     <div className="drawer-scrim" onClick={onClose}>
-      <section className={`drawer ${side}`} role="dialog" aria-label={title} onClick={(e) => e.stopPropagation()}>
+      <section className={`drawer ${side}`} role="dialog" aria-label={title} onClick={(e) => e.stopPropagation()} {...swipeDown}>
         <header className="drawer-head" {...(side === 'centre' ? {} : closeDrag)}>
           <strong>{title}</strong>
         </header>
-        <div className="drawer-body">{children}</div>
+        <div className="drawer-body" ref={body}>
+          {children}
+        </div>
         {footer && <div className="drawer-foot">{footer}</div>}
       </section>
     </div>
@@ -471,11 +505,11 @@ function DamageDrawer({ seat, game, rotate, onGame, onClose }: DrawerProps) {
   )
 }
 
-/** Poison and the other counters, plus monarch and initiative, up from the seat's bottom edge. */
+/** Poison and the other counters, plus monarch and initiative, down from the seat's top edge. */
 function CountersDrawer({ seat, game, rotate, onGame, onClose }: DrawerProps) {
   return (
     <Drawer
-      side="bottom"
+      side="top"
       title="Counters"
       rotate={rotate}
       onClose={onClose}
@@ -737,9 +771,9 @@ function Menu({
         </button>
 
         <p className="small faint">
-          Tap the right half of a seat to gain life and the left half to lose it. Hold for ten at a time. Swipe in from a seat's left
-          edge for commander damage, swipe up from its bottom edge for poison and the other counters, or tap its name to rename or
-          recolour it. The screen stays
+          Tap the right half of a seat to gain life and the left half to lose it. Hold for ten at a time. Swipe in from the edge of a seat
+          that faces the table for commander damage, swipe down from its top edge for poison and the other counters, or tap its
+          name to rename or recolour it. Swipe down on a drawer to put it away. The screen stays
           on while the counter is open.
         </p>
 
