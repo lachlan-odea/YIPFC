@@ -2094,6 +2094,17 @@ button.ach {
   white-space: nowrap;
 }
 
+.pane-badge.cmdr {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.pane-badge .swatch-dot {
+  width: 0.65em;
+  height: 0.65em;
+}
+
 .pane-badge.lethal,
 .pane-badge.out {
   background: var(--rose);

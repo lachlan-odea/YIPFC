@@ -12,7 +12,6 @@ import {
   adjustCommander,
   adjustCounter,
   adjustLife,
-  commanderTotal,
   inProgress,
   innerSides,
   isDead,
@@ -214,7 +213,10 @@ function Pane({
   const inner = innerSides(cell, lay, rotate)
   const sides = inner.length ? inner : (['left', 'right'] as const)
   const fullWidth = cell.colSpan === lay.cols
-  const cmdr = commanderTotal(seat)
+  // Commander damage per attacker, so the badges say who has dealt what.
+  const cmdr = opponents(game, seat.id)
+    .map((o) => ({ from: o, n: seat.commander[o.id] ?? 0 }))
+    .filter((d) => d.n > 0)
   const paneStyle = {
     gridRow: `${cell.row} / span ${cell.rowSpan}`,
     gridColumn: `${cell.col} / span ${cell.colSpan}`,
@@ -283,7 +285,16 @@ function Pane({
           <div className="pane-badges">
             {dead && <span className="pane-badge out">{seat.life} life</span>}
             {seat.counters.poison > 0 && <span className={`pane-badge ${seat.counters.poison >= LETHAL.poison ? 'lethal' : ''}`}>☠ {seat.counters.poison}</span>}
-            {cmdr > 0 && <span className="pane-badge">⚔ {cmdr}</span>}
+            {cmdr.map(({ from, n }) => (
+              <span
+                key={from.id}
+                className={`pane-badge cmdr ${n >= LETHAL.commander ? 'lethal' : ''}`}
+                title={`${n} commander damage from ${from.name}`}
+                aria-label={`${n} commander damage from ${from.name}`}
+              >
+                <i className="swatch-dot" style={{ background: SEAT_COLOURS[from.colour] }} aria-hidden="true" />⚔ {n}
+              </span>
+            ))}
             {seat.counters.energy > 0 && <span className="pane-badge">⚡ {seat.counters.energy}</span>}
             {seat.counters.experience > 0 && <span className="pane-badge">✦ {seat.counters.experience}</span>}
             {seat.counters.tax > 0 && <span className="pane-badge">tax {seat.counters.tax}</span>}
