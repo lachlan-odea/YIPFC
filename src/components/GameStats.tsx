@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { usePool } from '../lib/store'
 import { Sheet, errorText, useToast } from './ui'
-import { SEAT_COLOURS, activeSeats, alive, deckTally, gameRecord, isOver, playerTally, seatStats, type Game, type Tally } from '../lib/life'
+import { SEAT_COLOURS, activeSeats, alive, commanderKey, commanderTally, gameRecord, isOver, playerTally, seatStats, type Game, type Tally } from '../lib/life'
 import type { GameRecord } from '../lib/types'
 import { uid } from '../lib/uid'
 
@@ -82,7 +82,7 @@ export function EndGameSheet({ game, onClose, onSaved }: { game: Game; onClose: 
                 <tr key={s.id}>
                   <td>
                     <strong>{s.name}</strong>
-                    {s.deckName && <div className="small faint">{s.deckName}</div>}
+                    {s.commanderName && <div className="small faint">{s.commanderName}</div>}
                   </td>
                   <td className="num">
                     <span className="up">+{st.gained}</span> <span className="down">−{st.lost}</span>
@@ -101,23 +101,23 @@ export function EndGameSheet({ game, onClose, onSaved }: { game: Game; onClose: 
         <button className="btn quiet block" onClick={onClose}>
           {over ? 'Keep playing' : 'Cancel'}
         </button>
-        <p className="small faint">Saved games build each deck's record on the Decks tab and under Games &amp; stats.</p>
+        <p className="small faint">Saved games build each commander's and player's record under Games &amp; stats.</p>
       </div>
     </Sheet>
   )
 }
 
-/** Every finished game the pod has saved, rolled up by deck and by player, then listed. */
+/** Every finished game the pod has saved, rolled up by commander and by player, then listed. */
 export function StatsSheet({ onClose }: { onClose: () => void }) {
   const pool = usePool()
   const toast = useToast()
   const games = pool.games
 
-  const decks = useMemo(() => {
+  const commanders = useMemo(() => {
     const seen = new Map<string, string>()
-    for (const g of games) for (const r of g.players) if (r.deck_id && !seen.has(r.deck_id)) seen.set(r.deck_id, pool.decks.find((d) => d.id === r.deck_id)?.name ?? r.deck_name ?? 'Deck')
-    return [...seen].map(([id, name]) => ({ id, name, t: deckTally(games, id) })).sort(byRecord)
-  }, [games, pool.decks])
+    for (const g of games) for (const r of g.players) if (r.commander && !seen.has(commanderKey(r.commander))) seen.set(commanderKey(r.commander), r.commander.trim())
+    return [...seen].map(([id, name]) => ({ id, name, t: commanderTally(games, name) })).sort(byRecord)
+  }, [games])
 
   const players = useMemo(() => {
     const seen = new Map<string, string>()
@@ -140,12 +140,12 @@ export function StatsSheet({ onClose }: { onClose: () => void }) {
           </div>
         )}
 
-        {decks.length > 0 && (
+        {commanders.length > 0 && (
           <>
             <h3 className="section-h">
-              Decks <span>{decks.length}</span>
+              Commanders <span>{commanders.length}</span>
             </h3>
-            <TallyTable rows={decks} />
+            <TallyTable rows={commanders} />
           </>
         )}
 
@@ -232,7 +232,7 @@ function GameRow({ game, mine, onRemove }: { game: GameRecord; mine: boolean; on
       <div className="stack" style={{ gap: 2, minWidth: 0 }}>
         <strong>
           {champ ? `${champ.name} won` : 'No winner'}
-          {champ?.deck_name ? <span className="muted"> with {champ.deck_name}</span> : ''}
+          {champ?.commander ? <span className="muted"> with {champ.commander}</span> : ''}
         </strong>
         <span className="small faint">
           {when(game.ended_at)} · turn {game.turns} · {game.players.map((p) => p.name).join(', ')}
@@ -244,17 +244,5 @@ function GameRow({ game, mine, onRemove }: { game: GameRecord; mine: boolean; on
         </button>
       )}
     </div>
-  )
-}
-
-/** "3W 1L" for a deck tile, or nothing until it has been played. */
-export function DeckRecord({ deckId }: { deckId: string }) {
-  const pool = usePool()
-  const t = deckTally(pool.games, deckId)
-  if (!t.games) return null
-  return (
-    <span className="record" title={`${t.games} games, ${pct(t.winRate)} won`}>
-      {t.wins}W {t.games - t.wins}L
-    </span>
   )
 }

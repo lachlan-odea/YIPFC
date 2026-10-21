@@ -162,15 +162,16 @@ the right way up.
   round to the first player; tap it to pass. Play goes clockwise around
   the table, skipping anyone who is out, and the active seat glows. The menu
   has an undo for a double tap.
-- **Decks.** In the seat panel, pick the deck being played from that player's
-  decks on the Decks tab. It shows under the name.
+- **Commander.** In the seat panel, type the commander being played. It shows
+  under the name, and commanders the player has saved games with before are a
+  tap away.
 - **Results.** When one player is left (or from **End game…** in the menu) a
   sheet shows the winner, how long it took, and each seat's life gained and
   lost, commander damage dealt, and the turn they went out. **Save result**
   keeps it and sets up the next game. Saved games are shared with the pod:
-  **Games & stats** in the menu rolls them up by deck and by player (games,
-  wins, win rate, average length, average life lost) and lists recent games,
-  and each deck tile on the Decks tab shows its win–loss record.
+  **Games & stats** in the menu rolls them up by commander and by player
+  (games, wins, win rate, average length, average life lost) and lists recent
+  games.
 
 Seats take the pod's names to begin with, the screen stays awake while the
 counter is open, and the game is kept on the phone, so leaving the tab and

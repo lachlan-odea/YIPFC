@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type CSSProperties, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
 import { usePool } from '../lib/store'
 import { Icons, Sheet, useToast } from '../components/ui'
 import { EndGameSheet, StatsSheet } from '../components/GameStats'
@@ -30,6 +30,7 @@ import {
   toggleMonarch,
   undoPass,
   updateSeat,
+  commanderKey,
   type Cell,
   type Counter,
   type Game,
@@ -351,7 +352,7 @@ function Pane({
             )}
             {seat.name}
           </button>
-          {seat.deckName && <span className="deck-tag">{seat.deckName}</span>}
+          {seat.commanderName && <span className="cmdr-tag">{seat.commanderName}</span>}
           <div className="life-wrap">
             <span className="sign" aria-hidden="true">
               −
@@ -682,14 +683,37 @@ function SeatCard({ seat, game, rotate, onGame, onClose }: DrawerProps) {
   const setName = (name: string) => onGame((g) => updateSeat(g, seat.id, { name }))
   const pickPlayer = (name: string) =>
     onGame((g) => updateSeat(g, seat.id, { name, playerId: pool.players.find((p) => p.name === name)?.id ?? null }))
-  // That player's decks first; a guest can pick from anything in the pod.
-  const decks = pool.decks
-    .filter((d) => !seat.playerId || d.owner_id === seat.playerId)
-    .sort((a, b) => a.name.localeCompare(b.name))
-  const setDeck = (d: { id: string; name: string } | null) => onGame((g) => updateSeat(g, seat.id, { deckId: d?.id ?? null, deckName: d?.name ?? null }))
+  const setCommander = (v: string) => onGame((g) => updateSeat(g, seat.id, { commanderName: v.trim() ? v : null }))
+  // Commanders this player (or, for a guest, anyone in the pod) has saved games with: one tap to pick again.
+  const recent = useMemo(() => {
+    const seen = new Map<string, string>()
+    for (const r of pool.games)
+      for (const p of r.players)
+        if (p.commander && (!seat.playerId || p.player_id === seat.playerId) && !seen.has(commanderKey(p.commander)))
+          seen.set(commanderKey(p.commander), p.commander.trim())
+    return [...seen.values()].filter((c) => commanderKey(c) !== commanderKey(seat.commanderName)).slice(0, 8)
+  }, [pool.games, seat.playerId, seat.commanderName])
   return (
     <Drawer side="full" title="This seat" rotate={rotate} onClose={onClose}>
       <div className="seat-grid">
+        <div className="seat-who">
+          <input
+            className="input"
+            value={seat.commanderName ?? ''}
+            maxLength={60}
+            placeholder="Commander (for the record)"
+            aria-label="Commander"
+            onChange={(e) => setCommander(e.target.value)}
+          />
+          {recent.length > 0 && (
+            <div className="chips" aria-label="Commanders played before">
+              {recent.map((c) => (
+                <button key={c} className="chip" onClick={() => setCommander(c)}>
+                  {c}
+                </button>
+              ))}
+            </div>
+          )}
         <div className="name-list" role="radiogroup" aria-label="Who sits here">
           {names.map((n) => (
             <button
@@ -722,24 +746,6 @@ function SeatCard({ seat, game, rotate, onGame, onClose }: DrawerProps) {
             {guest && <Icons.check />}
           </button>
         </div>
-        <div className="name-list decks" role="radiogroup" aria-label="Deck">
-          <button type="button" role="radio" className="name-row other" aria-checked={!seat.deckId} onClick={() => setDeck(null)}>
-            No deck
-            {!seat.deckId && <Icons.check />}
-          </button>
-          {seat.deckId && !decks.some((d) => d.id === seat.deckId) && (
-            <button type="button" role="radio" className="name-row" aria-checked onClick={() => {}}>
-              {seat.deckName}
-              <Icons.check />
-            </button>
-          )}
-          {decks.map((d) => (
-            <button key={d.id} type="button" role="radio" className="name-row" aria-checked={seat.deckId === d.id} onClick={() => setDeck(d)}>
-              {d.name}
-              {seat.deckId === d.id && <Icons.check />}
-            </button>
-          ))}
-          {decks.length === 0 && <span className="name-row faint">No decks on the Decks tab yet</span>}
         </div>
         <div className="seat-side">
           {guest && (

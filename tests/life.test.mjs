@@ -11,7 +11,8 @@ import {
   adjustLife,
   alive,
   commanderTotal,
-  deckTally,
+  commanderKey,
+  commanderTally,
   gameRecord,
   isOver,
   passTurn,
@@ -318,10 +319,10 @@ test('the log drives per-seat stats: life, commander damage, turns, and the turn
   assert.equal(alive(g).length, 2)
 })
 
-test('gameRecord captures the table, and tallies roll it up by deck and player', () => {
+test('gameRecord captures the table, and tallies roll it up by commander and player', () => {
   let g = startTurns(newGame(2, 20), 1, 5000)
-  g = updateSeat(g, 0, { playerId: 'p-a', deckId: 'd-1', deckName: 'Atraxa' })
-  g = updateSeat(g, 1, { playerId: 'p-b', deckId: 'd-2', deckName: 'Krenko' })
+  g = updateSeat(g, 0, { playerId: 'p-a', commanderName: 'Atraxa, Praetors\' Voice' })
+  g = updateSeat(g, 1, { playerId: 'p-b', commanderName: 'Krenko' })
   g = adjustLife(g, 0, -20)
   g = passTurn(g)
   const rec = gameRecord(g, { id: 'g1', pod_id: 'pod', created_by: 'p-b', winner: 1, now: 65000 })
@@ -331,21 +332,22 @@ test('gameRecord captures the table, and tallies roll it up by deck and player',
   assert.equal(rec.winner_seat, 1)
   assert.equal(rec.players.length, 2)
   assert.deepEqual(
-    rec.players.map((p) => [p.name, p.deck_id, p.won, p.out_turn, p.life_lost]),
+    rec.players.map((p) => [p.name, p.commander, p.won, p.out_turn, p.life_lost]),
     [
-      ['Player 1', 'd-1', false, 1, 20],
-      ['Player 2', 'd-2', true, null, 0],
+      ['Player 1', "Atraxa, Praetors' Voice", false, 1, 20],
+      ['Player 2', 'Krenko', true, null, 0],
     ],
   )
   // Another game the other way round.
   let h = startTurns(newGame(2, 20), 0)
-  h = updateSeat(h, 0, { playerId: 'p-a', deckId: 'd-1', deckName: 'Atraxa' })
-  h = updateSeat(h, 1, { playerId: 'p-b', deckId: 'd-2', deckName: 'Krenko' })
+  // Typed a little differently the second time: still the same commander.
+  h = updateSeat(h, 0, { playerId: 'p-a', commanderName: " atraxa,  praetors' voice" })
+  h = updateSeat(h, 1, { playerId: 'p-b', commanderName: 'Krenko' })
   h = passTurn(h)
   h = passTurn(h)
   h = adjustLife(h, 1, -20)
   const rec2 = gameRecord(h, { id: 'g2', pod_id: 'pod', created_by: 'p-a', winner: 0 })
-  const atraxa = deckTally([rec, rec2], 'd-1')
+  const atraxa = commanderTally([rec, rec2], "Atraxa, Praetors' Voice")
   assert.equal(atraxa.games, 2)
   assert.equal(atraxa.wins, 1)
   assert.equal(atraxa.winRate, 0.5)
@@ -353,7 +355,9 @@ test('gameRecord captures the table, and tallies roll it up by deck and player',
   assert.equal(atraxa.avgLost, 10)
   assert.equal(atraxa.avgOutTurn, 1)
   assert.equal(playerTally([rec, rec2], 'p-b').wins, 1)
-  assert.equal(deckTally([rec, rec2], 'nope').games, 0)
+  assert.equal(commanderTally([rec, rec2], 'nope').games, 0)
+  assert.equal(commanderTally([rec, rec2], '').games, 0, 'a blank commander matches nothing')
+  assert.equal(commanderKey('  Atraxa,   Praetors\' Voice '), "atraxa, praetors' voice")
   assert.equal(tally([], () => true).winRate, null)
 })
 
@@ -363,7 +367,7 @@ test('parseGame round-trips a game and rejects junk', () => {
   g = adjustCommander(g, 0, 1, 4)
   g = adjustCounter(g, 2, 'energy', 3)
   g = toggleMonarch(g, 4)
-  g = updateSeat(g, 1, { playerId: 'p', deckId: 'd', deckName: 'Deck' })
+  g = updateSeat(g, 1, { playerId: 'p', commanderName: 'Yuriko' })
   g = passTurn(g)
   assert.deepEqual(parseGame(JSON.parse(JSON.stringify(g))), g)
   assert.equal(parseGame(null), null)
@@ -383,5 +387,9 @@ test('parseGame round-trips a game and rejects junk', () => {
   const older = parseGame(odd)
   assert.deepEqual(older.log, [])
   assert.equal(older.turn, 0)
-  assert.equal(older.seats[1].deckId, 'd')
+  assert.equal(older.seats[1].commanderName, 'Yuriko')
+  // A save from when the field held a deck name carries it over as the commander.
+  odd.seats[1].deckName = 'Old deck'
+  delete odd.seats[1].commanderName
+  assert.equal(parseGame(odd).seats[1].commanderName, 'Old deck')
 })

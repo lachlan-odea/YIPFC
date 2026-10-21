@@ -51,9 +51,8 @@ export type Seat = {
   ko: boolean
   /** The pod player in this seat, when picked from the pod; null for a guest. */
   playerId: string | null
-  /** The deck they are playing, so results can be tallied against it. */
-  deckId: string | null
-  deckName: string | null
+  /** The commander they are playing, typed in, so results can be tallied against it. */
+  commanderName: string | null
 }
 
 /**
@@ -102,8 +101,7 @@ function freshSeat(id: number, life: number, prev?: Seat, name?: string): Seat {
     flipped: prev?.flipped ?? false,
     ko: false,
     playerId: prev?.playerId ?? null,
-    deckId: prev?.deckId ?? null,
-    deckName: prev?.deckName ?? null,
+    commanderName: prev?.commanderName ?? null,
   }
 }
 
@@ -202,7 +200,7 @@ export function adjustCommander(game: Game, seatId: number, fromId: number, delt
   return alsoLife ? adjustLife(next, seatId, -applied) : next
 }
 
-export function updateSeat(game: Game, seatId: number, patch: Partial<Pick<Seat, 'name' | 'colour' | 'flipped' | 'playerId' | 'deckId' | 'deckName'>>): Game {
+export function updateSeat(game: Game, seatId: number, patch: Partial<Pick<Seat, 'name' | 'colour' | 'flipped' | 'playerId' | 'commanderName'>>): Game {
   return mapSeat(game, seatId, (s) => ({ ...s, ...patch }))
 }
 
@@ -350,8 +348,7 @@ export function gameRecord(game: Game, meta: { id: string; pod_id: string | null
       seat: seat.id,
       name: seat.name,
       player_id: seat.playerId,
-      deck_id: seat.deckId,
-      deck_name: seat.deckName,
+      commander: seat.commanderName,
       colour: seat.colour,
       won: seat.id === meta.winner,
       out_turn: st.outTurn,
@@ -410,7 +407,13 @@ export function tally(records: GameRecord[], pick: (r: SeatResult, g: GameRecord
   }
 }
 
-export const deckTally = (records: GameRecord[], deckId: string): Tally => tally(records, (r) => r.deck_id === deckId)
+/** Commanders are typed by hand, so "Atraxa" and "atraxa " are the same one. */
+export const commanderKey = (name: string | null | undefined): string => (name ?? '').trim().toLowerCase().replace(/\s+/g, ' ')
+
+export const commanderTally = (records: GameRecord[], commander: string): Tally => {
+  const key = commanderKey(commander)
+  return tally(records, (r) => !!key && commanderKey(r.commander) === key)
+}
 export const playerTally = (records: GameRecord[], playerId: string): Tally => tally(records, (r) => r.player_id === playerId)
 
 /* ---------- last words ---------- */
@@ -547,8 +550,8 @@ export function parseGame(raw: unknown): Game | null {
       flipped: !!s.flipped,
       ko: !!s.ko,
       playerId: str(s.playerId),
-      deckId: str(s.deckId),
-      deckName: str(s.deckName),
+      // Saves from before the field was a commander name carried a deck name instead.
+      commanderName: str(s.commanderName) ?? str((s as { deckName?: unknown }).deckName),
     })
   }
   const log: GameEvent[] = Array.isArray(g.log)

@@ -97,8 +97,8 @@ export type SeatResult = {
   name: string
   /** The pod player, when the seat was picked from the pod. */
   player_id: string | null
-  deck_id: string | null
-  deck_name: string | null
+  /** The commander they played, as typed; tallies match it case-insensitively. */
+  commander: string | null
   colour: string
   won: boolean
   /** The turn they went out, or null if they were still in at the end. */
@@ -112,7 +112,7 @@ export type SeatResult = {
   turns: number
 }
 
-/** A finished game of Commander, kept so decks and players build up a record. */
+/** A finished game of Commander, kept so commanders and players build up a record. */
 export type GameRecord = {
   id: string
   /** The pod it was played in, or null for a game outside any pod. */
