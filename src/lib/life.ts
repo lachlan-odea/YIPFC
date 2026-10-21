@@ -419,6 +419,74 @@ export function tally(records: GameRecord[], pick: (r: SeatResult, g: GameRecord
 /** Commanders are typed by hand, so "Atraxa" and "atraxa " are the same one. */
 export const commanderKey = (name: string | null | undefined): string => (name ?? '').trim().toLowerCase().replace(/\s+/g, ' ')
 
+/* ---------- Elo ---------- */
+
+export const ELO_START = 1000
+const ELO_K = 32
+
+/**
+ * Finishing order for one game, 1 being best, with ties. The winner comes
+ * first; anyone still in at the end but not the winner shares the next
+ * place; everyone else ranks by how long they lasted.
+ */
+export function placements(record: GameRecord): Map<number, number> {
+  const rank = (r: SeatResult) => (r.won ? [0, 0] : r.out_turn === null ? [1, 0] : [2, -r.out_turn])
+  const sorted = record.players.slice().sort((a, b) => {
+    const [a0, a1] = rank(a)
+    const [b0, b1] = rank(b)
+    return a0 - b0 || a1 - b1
+  })
+  const out = new Map<number, number>()
+  let place = 0
+  let prev: string | null = null
+  sorted.forEach((r, i) => {
+    const k = rank(r).join(':')
+    if (k !== prev) place = i + 1
+    prev = k
+    out.set(r.seat, place)
+  })
+  return out
+}
+
+export type Rating = { rating: number; games: number }
+
+/**
+ * Elo across saved games, oldest first, as a round-robin inside each game:
+ * every pair of players is scored as a match (win, loss or tie by finishing
+ * place) with K shared between the opponents, so a four-player win is worth
+ * about the same as a two-player one. `key` names what is being rated for
+ * a seat (a commander, a player); seats without one sit the game out.
+ */
+export function eloRatings(records: GameRecord[], key: (r: SeatResult) => string | null, k = ELO_K): Map<string, Rating> {
+  const ratings = new Map<string, Rating>()
+  const get = (id: string) => ratings.get(id) ?? { rating: ELO_START, games: 0 }
+  const ordered = records.slice().sort((a, b) => a.ended_at.localeCompare(b.ended_at))
+  for (const g of ordered) {
+    const places = placements(g)
+    const seats = g.players.map((r) => ({ id: key(r), place: places.get(r.seat) ?? 1 })).filter((x): x is { id: string; place: number } => !!x.id)
+    if (seats.length < 2) continue
+    const before = new Map(seats.map((s) => [s.id, get(s.id).rating]))
+    const delta = new Map<string, number>()
+    const share = k / (seats.length - 1)
+    for (let i = 0; i < seats.length; i++)
+      for (let j = i + 1; j < seats.length; j++) {
+        const a = seats[i]
+        const b = seats[j]
+        if (a.id === b.id) continue
+        const score = a.place < b.place ? 1 : a.place > b.place ? 0 : 0.5
+        const expected = 1 / (1 + 10 ** ((before.get(b.id)! - before.get(a.id)!) / 400))
+        const d = share * (score - expected)
+        delta.set(a.id, (delta.get(a.id) ?? 0) + d)
+        delta.set(b.id, (delta.get(b.id) ?? 0) - d)
+      }
+    for (const id of new Set(seats.map((s) => s.id))) {
+      const cur = get(id)
+      ratings.set(id, { rating: cur.rating + (delta.get(id) ?? 0), games: cur.games + 1 })
+    }
+  }
+  return ratings
+}
+
 export const commanderTally = (records: GameRecord[], commander: string): Tally => {
   const key = commanderKey(commander)
   return tally(records, (r) => !!key && commanderKey(r.commander) === key)

@@ -11,8 +11,11 @@ import {
   adjustLife,
   alive,
   commanderTotal,
+  ELO_START,
   commanderKey,
   commanderTally,
+  eloRatings,
+  placements,
   gameRecord,
   isOver,
   passTurn,
@@ -374,6 +377,80 @@ test('gameRecord captures the table, and tallies roll it up by commander and pla
   assert.equal(commanderTally([rec, rec2], '').games, 0, 'a blank commander matches nothing')
   assert.equal(commanderKey('  Atraxa,   Praetors\' Voice '), "atraxa, praetors' voice")
   assert.equal(tally([], () => true).winRate, null)
+})
+
+const result = (seat, name, extra = {}) => ({
+  seat,
+  name,
+  player_id: `p-${name}`,
+  commander: `c-${name}`,
+  colour: 'pink',
+  won: false,
+  out_turn: null,
+  final_life: 40,
+  life_gained: 0,
+  life_lost: 0,
+  commander_dealt: 0,
+  commander_taken: 0,
+  poison: 0,
+  turns: 1,
+  ...extra,
+})
+const game = (id, ended, players) => ({
+  id,
+  pod_id: null,
+  created_by: 'x',
+  played_at: ended,
+  ended_at: ended,
+  turns: 5,
+  starting_life: 40,
+  winner_seat: players.find((p) => p.won)?.seat ?? null,
+  players,
+})
+
+test('placements: winner first, survivors tie next, then by how long each lasted', () => {
+  const g = game('g', '2026-01-01T00:00:00Z', [
+    result(0, 'a', { out_turn: 3 }),
+    result(1, 'b', { won: true }),
+    result(2, 'c', { out_turn: 5 }),
+    result(3, 'd'),
+  ])
+  assert.deepEqual([...placements(g)], [[1, 1], [3, 2], [2, 3], [0, 4]])
+  const draw = game('h', '2026-01-01T00:00:00Z', [result(0, 'a'), result(1, 'b'), result(2, 'c', { out_turn: 2 })])
+  assert.deepEqual([...placements(draw)], [[0, 1], [1, 1], [2, 3]])
+})
+
+test('Elo: a win gains what the loss loses, favourites gain less, and games sum to zero', () => {
+  const byCommander = (r) => r.commander
+  const one = game('1', '2026-01-01T00:00:00Z', [result(0, 'a', { won: true }), result(1, 'b', { out_turn: 4 })])
+  let r = eloRatings([one], byCommander)
+  assert.equal(r.get('c-a').rating, ELO_START + 16)
+  assert.equal(r.get('c-b').rating, ELO_START - 16)
+  assert.equal(r.get('c-a').games, 1)
+  // The same two again: the favourite gains less than 16 this time.
+  const two = game('2', '2026-01-02T00:00:00Z', [result(0, 'a', { won: true }), result(1, 'b', { out_turn: 4 })])
+  r = eloRatings([two, one], byCommander)
+  assert.ok(r.get('c-a').rating > ELO_START + 16 && r.get('c-a').rating < ELO_START + 32)
+  assert.ok(Math.abs(r.get('c-a').rating + r.get('c-b').rating - 2 * ELO_START) < 1e-9, 'zero sum')
+  // Four players: still zero sum, winner up, first out down the most.
+  const four = game('4', '2026-01-03T00:00:00Z', [
+    result(0, 'w', { won: true }),
+    result(1, 'x', { out_turn: 6 }),
+    result(2, 'y', { out_turn: 3 }),
+    result(3, 'z', { out_turn: 8 }),
+  ])
+  r = eloRatings([four], byCommander)
+  const total = ['w', 'x', 'y', 'z'].reduce((n, c) => n + r.get(`c-${c}`).rating, 0)
+  assert.ok(Math.abs(total - 4 * ELO_START) < 1e-9)
+  assert.equal(r.get('c-w').rating, ELO_START + 16, 'three wins at a third of K each')
+  assert.ok(r.get('c-y').rating < r.get('c-x').rating && r.get('c-x').rating < r.get('c-z').rating)
+  // A seat with nothing to rate sits the game out; a game with one rated seat changes nothing.
+  const guest = game('5', '2026-01-04T00:00:00Z', [result(0, 'a', { won: true }), result(1, 'g', { commander: null, out_turn: 2 })])
+  r = eloRatings([guest], byCommander)
+  assert.equal(r.size, 0)
+  // By player instead of commander.
+  const rp = eloRatings([one], (x) => x.player_id)
+  assert.equal(rp.get('p-a').rating, ELO_START + 16)
 })
 
 test('parseGame round-trips a game and rejects junk', () => {

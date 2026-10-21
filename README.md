@@ -170,9 +170,15 @@ the right way up.
   sheet shows the winner, how long it took, and each seat's life gained and
   lost, commander damage dealt, and the turn they went out. **Save result**
   keeps it and sets up the next game. Saved games are shared with the pod:
-  **Games & stats** in the menu rolls them up by commander and by player
-  (games, wins, win rate, average length, average life lost) and lists recent
-  games.
+  **Games & stats** rolls them up by commander and by player (Elo rating,
+  games, wins, win rate, average length, average life lost) and lists recent
+  games. It is in the game menu, on the **You** tab, and behind **Records**
+  on the Decks tab.
+- **Elo.** Everyone starts at 1000. Each saved game is scored as a match
+  between every pair of players, by finishing order (the winner first, then
+  whoever lasted longest), with the usual K of 32 shared across the
+  opponents so a four-player win and a two-player win move ratings about the
+  same amount. Commanders and players are rated separately.
 
 Seats take the pod's names to begin with, the screen stays awake while the
 counter is open, and the game is kept on the phone, so leaving the tab and

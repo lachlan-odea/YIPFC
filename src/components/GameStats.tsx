@@ -1,7 +1,20 @@
 import { useMemo, useState } from 'react'
 import { usePool } from '../lib/store'
 import { Sheet, errorText, useToast } from './ui'
-import { SEAT_COLOURS, activeSeats, alive, commanderKey, commanderTally, gameRecord, isOver, playerTally, seatStats, type Game, type Tally } from '../lib/life'
+import {
+  SEAT_COLOURS,
+  activeSeats,
+  alive,
+  commanderKey,
+  commanderTally,
+  eloRatings,
+  gameRecord,
+  isOver,
+  playerTally,
+  seatStats,
+  type Game,
+  type Tally,
+} from '../lib/life'
 import type { GameRecord } from '../lib/types'
 import { uid } from '../lib/uid'
 
@@ -107,23 +120,31 @@ export function EndGameSheet({ game, onClose, onSaved }: { game: Game; onClose: 
   )
 }
 
+/** Saved games rolled up by commander and by player: record, averages and Elo, best first. */
+export function useStatsRows(): { commanders: Row[]; players: Row[] } {
+  const pool = usePool()
+  const games = pool.games
+  const commanders = useMemo(() => {
+    const elo = eloRatings(games, (r) => (r.commander ? commanderKey(r.commander) : null))
+    const seen = new Map<string, string>()
+    for (const g of games) for (const r of g.players) if (r.commander && !seen.has(commanderKey(r.commander))) seen.set(commanderKey(r.commander), r.commander.trim())
+    return [...seen].map(([id, name]) => ({ id, name, t: commanderTally(games, name), elo: elo.get(id)?.rating ?? null })).sort(byRating)
+  }, [games])
+  const players = useMemo(() => {
+    const elo = eloRatings(games, (r) => r.player_id)
+    const seen = new Map<string, string>()
+    for (const g of games) for (const r of g.players) if (r.player_id && !seen.has(r.player_id)) seen.set(r.player_id, pool.playerById(r.player_id)?.name ?? r.name)
+    return [...seen].map(([id, name]) => ({ id, name, t: playerTally(games, id), elo: elo.get(id)?.rating ?? null })).sort(byRating)
+  }, [games, pool])
+  return { commanders, players }
+}
+
 /** Every finished game the pod has saved, rolled up by commander and by player, then listed. */
 export function StatsSheet({ onClose }: { onClose: () => void }) {
   const pool = usePool()
   const toast = useToast()
   const games = pool.games
-
-  const commanders = useMemo(() => {
-    const seen = new Map<string, string>()
-    for (const g of games) for (const r of g.players) if (r.commander && !seen.has(commanderKey(r.commander))) seen.set(commanderKey(r.commander), r.commander.trim())
-    return [...seen].map(([id, name]) => ({ id, name, t: commanderTally(games, name) })).sort(byRecord)
-  }, [games])
-
-  const players = useMemo(() => {
-    const seen = new Map<string, string>()
-    for (const g of games) for (const r of g.players) if (r.player_id && !seen.has(r.player_id)) seen.set(r.player_id, pool.playerById(r.player_id)?.name ?? r.name)
-    return [...seen].map(([id, name]) => ({ id, name, t: playerTally(games, id) })).sort(byRecord)
-  }, [games, pool])
+  const { commanders, players } = useStatsRows()
 
   return (
     <Sheet onClose={onClose} label="Games and stats">
@@ -187,24 +208,37 @@ export function StatsSheet({ onClose }: { onClose: () => void }) {
   )
 }
 
-type Row = { id: string; name: string; t: Tally }
-const byRecord = (a: Row, b: Row) => b.t.games - a.t.games || (b.t.winRate ?? 0) - (a.t.winRate ?? 0) || a.name.localeCompare(b.name)
+export type Row = { id: string; name: string; t: Tally; elo: number | null }
+const byRating = (a: Row, b: Row) => (b.elo ?? -Infinity) - (a.elo ?? -Infinity) || b.t.games - a.t.games || a.name.localeCompare(b.name)
 
-function TallyTable({ rows }: { rows: Row[] }) {
+/** Elo rounded, in the badge colour when above the starting rating. */
+function Elo({ value }: { value: number | null }) {
+  if (value === null) return <>–</>
+  return <span className={value >= 1000 ? 'elo up' : 'elo'}>{Math.round(value)}</span>
+}
+
+export function TallyTable({ rows, compact = false }: { rows: Row[]; compact?: boolean }) {
   return (
     <table className="stat-table">
       <thead>
         <tr>
           <th>Name</th>
+          <th className="num" title="Elo rating, starting at 1000; every pair of players in a game is scored as a match">
+            Elo
+          </th>
           <th className="num">Games</th>
           <th className="num">Won</th>
           <th className="num">Win %</th>
-          <th className="num" title="Average turns the game lasted">
-            Turns
-          </th>
-          <th className="num" title="Average life lost">
-            Lost
-          </th>
+          {!compact && (
+            <>
+              <th className="num" title="Average turns the game lasted">
+                Turns
+              </th>
+              <th className="num" title="Average life lost">
+                Lost
+              </th>
+            </>
+          )}
         </tr>
       </thead>
       <tbody>
@@ -213,15 +247,50 @@ function TallyTable({ rows }: { rows: Row[] }) {
             <td>
               <strong>{r.name}</strong>
             </td>
+            <td className="num">
+              <Elo value={r.elo} />
+            </td>
             <td className="num">{r.t.games}</td>
             <td className="num">{r.t.wins}</td>
             <td className="num">{pct(r.t.winRate)}</td>
-            <td className="num">{one(r.t.avgTurns)}</td>
-            <td className="num">{one(r.t.avgLost)}</td>
+            {!compact && (
+              <>
+                <td className="num">{one(r.t.avgTurns)}</td>
+                <td className="num">{one(r.t.avgLost)}</td>
+              </>
+            )}
           </tr>
         ))}
       </tbody>
     </table>
+  )
+}
+
+/**
+ * The commander table in brief, for the You tab: top few by Elo, with a
+ * button to the full sheet. Shows a nudge instead until a game is saved.
+ */
+export function StatsSummary() {
+  const pool = usePool()
+  const { commanders } = useStatsRows()
+  const [open, setOpen] = useState(false)
+  return (
+    <section className="stack" style={{ gap: 10 }}>
+      <h2 className="section-h">
+        Games &amp; stats <span>{pool.games.length === 1 ? '1 game' : `${pool.games.length} games`}</span>
+      </h2>
+      {commanders.length > 0 ? (
+        <TallyTable rows={commanders.slice(0, 5)} compact />
+      ) : (
+        <p className="small muted">
+          {pool.games.length ? 'No commanders named yet. Type one in each seat before saving a game.' : 'Save a game from the Life tab and the records start here.'}
+        </p>
+      )}
+      <button className="btn block" onClick={() => setOpen(true)}>
+        All games &amp; stats
+      </button>
+      {open && <StatsSheet onClose={() => setOpen(false)} />}
+    </section>
   )
 }
 

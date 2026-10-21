@@ -2923,6 +2923,15 @@ button.ach {
   color: var(--lime);
 }
 
+.stat-table .elo {
+  font-weight: 700;
+  color: var(--ink-2);
+}
+
+.stat-table .elo.up {
+  color: var(--cyan);
+}
+
 .stat-table .down {
   color: var(--rose);
 }
