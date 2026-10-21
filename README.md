@@ -144,8 +144,9 @@ the right way up.
   Hold either to run. The **K.O.** button at the foot of the counters
   drawer knocks the seat out whatever its life total, for a concession or a
   loss the counters do not track, and turns into **Back in the game** to undo
-  it. Drawers close with a swipe down, a tap on the rest of the panel, or a
-  drag back the way they came.
+  it. The seat panel fills the seat, with the pod's players in a scrolling list
+  beside the colours. Drawers close with a swipe down, a tap on the rest of
+  the panel, or a drag back the way they came.
 - The dice button in the middle opens the game menu: number of players (one to
   six), starting life (20, 25, 30, 40 or your own), a spinner to pick who goes
   first (the winning seat keeps a **1st** marker by their name for the rest of

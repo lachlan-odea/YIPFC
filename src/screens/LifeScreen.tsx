@@ -466,7 +466,7 @@ function Drawer({
   children,
   footer,
 }: {
-  side: 'left' | 'top' | 'centre'
+  side: 'left' | 'top' | 'full'
   title: string
   rotate: Cell['rotate']
   onClose: () => void
@@ -474,17 +474,27 @@ function Drawer({
   /** Pinned under the scrolling body, for the one action that must stay reachable. */
   footer?: ReactNode
 }) {
-  const body = useRef<HTMLDivElement>(null)
+  const panel = useRef<HTMLElement>(null)
+  const downTarget = useRef<Element | null>(null)
   const closeDrag = useSwipeEdge(rotate, side === 'left' ? 'left' : 'up', onClose, () => {})
-  const swipeDown = useSwipeEdge(
+  const down = useSwipeEdge(
     rotate,
     'down',
     () => {
-      if ((body.current?.scrollTop ?? 0) <= 0) onClose()
+      // A drag down inside a list that is scrolled is a scroll, not a dismiss.
+      for (let n = downTarget.current; n && n !== panel.current; n = n.parentElement) if (n.scrollTop > 0) return
+      onClose()
     },
     () => {},
     false,
   )
+  const swipeDown = {
+    ...down,
+    onPointerDown: (e: ReactPointerEvent<HTMLElement>) => {
+      downTarget.current = e.target as Element
+      down.onPointerDown(e)
+    },
+  }
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
     document.addEventListener('keydown', onKey)
@@ -492,13 +502,11 @@ function Drawer({
   }, [onClose])
   return (
     <div className="drawer-scrim" onClick={onClose}>
-      <section className={`drawer ${side}`} role="dialog" aria-label={title} onClick={(e) => e.stopPropagation()} {...swipeDown}>
-        <header className="drawer-head" {...(side === 'centre' ? {} : closeDrag)}>
+      <section ref={panel} className={`drawer ${side}`} role="dialog" aria-label={title} onClick={(e) => e.stopPropagation()} {...swipeDown}>
+        <header className="drawer-head" {...closeDrag}>
           <strong>{title}</strong>
         </header>
-        <div className="drawer-body" ref={body}>
-          {children}
-        </div>
+        <div className="drawer-body">{children}</div>
         {footer && <div className="drawer-foot">{footer}</div>}
       </section>
     </div>
@@ -577,9 +585,9 @@ function CountersDrawer({ seat, game, rotate, onGame, onClose }: DrawerProps) {
 
 /**
  * Who sits here, their colour and which way the seat faces, from a tap on the
- * name. Names come from the pod's players as a list drawn inside the seat (a
- * native drop-down would not turn with it), with the seat's current name kept
- * if it is not one of them and an inline field for guests.
+ * name. Fills the seat: the pod's players scroll in a list on the left (a
+ * native drop-down would not turn with the seat), colour and the toggles sit
+ * on the right. Swipe down to put it away.
  */
 function SeatCard({ seat, game, rotate, onGame, onClose }: DrawerProps) {
   const pool = usePool()
@@ -590,73 +598,77 @@ function SeatCard({ seat, game, rotate, onGame, onClose }: DrawerProps) {
   const names = [...new Set(guest ? podNames : [...podNames, seat.name])].sort((a, b) => a.localeCompare(b))
   const setName = (name: string) => onGame((g) => updateSeat(g, seat.id, { name }))
   return (
-    <Drawer side="centre" title="This seat" rotate={rotate} onClose={onClose}>
-      <div className="name-list" role="radiogroup" aria-label="Who sits here">
-        {names.map((n) => (
+    <Drawer side="full" title="This seat" rotate={rotate} onClose={onClose}>
+      <div className="seat-grid">
+        <div className="name-list" role="radiogroup" aria-label="Who sits here">
+          {names.map((n) => (
+            <button
+              key={n}
+              type="button"
+              role="radio"
+              className="name-row"
+              aria-checked={!guest && seat.name === n}
+              onClick={() => {
+                setGuest(false)
+                setName(n)
+              }}
+            >
+              {n}
+              {!guest && seat.name === n && <Icons.check />}
+            </button>
+          ))}
           <button
-            key={n}
             type="button"
             role="radio"
-            className="name-row"
-            aria-checked={!guest && seat.name === n}
+            className="name-row other"
+            aria-checked={guest}
             onClick={() => {
-              setGuest(false)
-              setName(n)
+              setGuest(true)
+              setFocusGuest(true)
             }}
           >
-            {n}
-            {!guest && seat.name === n && <Icons.check />}
+            Someone else…
+            {guest && <Icons.check />}
           </button>
-        ))}
-        <button
-          type="button"
-          role="radio"
-          className="name-row other"
-          aria-checked={guest}
-          onClick={() => {
-            setGuest(true)
-            setFocusGuest(true)
-          }}
-        >
-          Someone else…
-          {guest && <Icons.check />}
-        </button>
-      </div>
-      {guest && (
-        <input
-          className="input"
-          value={podNames.includes(seat.name) ? '' : seat.name}
-          maxLength={24}
-          placeholder="Guest's name"
-          aria-label="Guest's name"
-          autoFocus={focusGuest}
-          onChange={(e) => setName(e.target.value)}
-          onBlur={(e) => {
-            if (!e.target.value.trim()) setName(`Player ${seat.id + 1}`)
-          }}
-        />
-      )}
-      <div className="swatches" role="radiogroup" aria-label="Seat colour">
-        {(Object.keys(SEAT_COLOURS) as SeatColour[]).map((k) => (
-          <button
-            key={k}
-            type="button"
-            role="radio"
-            className="swatch"
-            style={{ background: SEAT_COLOURS[k] }}
-            aria-checked={seat.colour === k}
-            aria-label={k}
-            onClick={() => onGame((g) => updateSeat(g, seat.id, { colour: k }))}
-          />
-        ))}
-      </div>
-      <div className="row wrap">
-        <button className="chip" aria-pressed={game.first === seat.id} onClick={() => onGame((g) => setFirst(g, seat.id))}>
-          1st Goes first
-        </button>
-        <button className="chip" aria-pressed={seat.flipped} onClick={() => onGame((g) => updateSeat(g, seat.id, { flipped: !seat.flipped }))}>
-          ⟲ Turn this seat around
-        </button>
+        </div>
+        <div className="seat-side">
+          {guest && (
+            <input
+              className="input"
+              value={podNames.includes(seat.name) ? '' : seat.name}
+              maxLength={24}
+              placeholder="Guest's name"
+              aria-label="Guest's name"
+              autoFocus={focusGuest}
+              onChange={(e) => setName(e.target.value)}
+              onBlur={(e) => {
+                if (!e.target.value.trim()) setName(`Player ${seat.id + 1}`)
+              }}
+            />
+          )}
+          <div className="swatches" role="radiogroup" aria-label="Seat colour">
+            {(Object.keys(SEAT_COLOURS) as SeatColour[]).map((k) => (
+              <button
+                key={k}
+                type="button"
+                role="radio"
+                className="swatch"
+                style={{ background: SEAT_COLOURS[k] }}
+                aria-checked={seat.colour === k}
+                aria-label={k}
+                onClick={() => onGame((g) => updateSeat(g, seat.id, { colour: k }))}
+              />
+            ))}
+          </div>
+          <div className="row wrap">
+            <button className="chip" aria-pressed={game.first === seat.id} onClick={() => onGame((g) => setFirst(g, seat.id))}>
+              1st Goes first
+            </button>
+            <button className="chip" aria-pressed={seat.flipped} onClick={() => onGame((g) => updateSeat(g, seat.id, { flipped: !seat.flipped }))}>
+              ⟲ Flip seat
+            </button>
+          </div>
+        </div>
       </div>
     </Drawer>
   )

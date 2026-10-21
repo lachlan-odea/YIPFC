@@ -2345,18 +2345,16 @@ button.ach {
   background: var(--line-strong);
 }
 
-.drawer-scrim:has(.drawer.centre) {
-  align-items: center;
-  justify-content: center;
-  padding: 8px;
+/* The seat card fills the face, dropping from the top like the counters. */
+.drawer.full {
+  width: 100%;
+  height: 100%;
+  animation: from-top 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
-.drawer.centre {
-  width: min(100%, 360px);
-  max-height: 100%;
-  border-radius: 14px;
-  border: 1px solid var(--line-strong);
-  animation: rise 0.2s ease;
+.drawer.full .drawer-body {
+  overflow: hidden;
+  touch-action: none;
 }
 
 /* A roomy seat leaves some of itself showing beside the damage drawer. */
@@ -2412,9 +2410,17 @@ button.ach {
   scrollbar-width: thin;
 }
 
-.drawer.top .drawer-body,
-.drawer.centre .drawer-body {
+.drawer.top .drawer-body {
   flex: 0 1 auto;
+}
+
+/* Vertical pans scroll a body that can scroll; everything else on a drawer is a swipe. */
+.drawer {
+  touch-action: none;
+}
+
+.drawer-body {
+  touch-action: pan-y;
 }
 
 /* Tiles grow to fill the seat; narrow seats get two across, wide ones three or four. */
@@ -2584,29 +2590,69 @@ button.ach {
 }
 
 .drawer-chips .chip,
-.drawer.centre .chip {
+.seat-side .chip {
   min-height: 32px;
   font-size: 12px;
+}
+
+/* Names on the left, colour and toggles on the right: fits a short side seat. */
+.seat-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+  gap: 10px;
+  height: 100%;
+  min-height: 0;
+}
+
+.seat-side {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  touch-action: pan-y;
+}
+
+.seat-side .swatches {
+  gap: 5px;
+}
+
+.seat-side .swatch {
+  width: 24px;
+  height: 24px;
+}
+
+.seat-side .input {
+  min-height: 36px;
+  padding: 6px 10px;
+  font-size: 13px;
 }
 
 /* The pod's players as a list inside the seat, so it turns with the seat. */
 .name-list {
   display: flex;
   flex-direction: column;
+  align-self: start;
+  max-height: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+  scrollbar-width: thin;
   border: 1px solid var(--line);
   border-radius: 12px;
-  overflow: hidden;
   background: var(--felt-2);
 }
 
 .name-row {
+  flex: none;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  min-height: 38px;
+  min-height: 36px;
   padding: 0 12px;
-  font-size: 14px;
+  font-size: 13px;
   color: var(--ink-2);
   text-align: left;
 }
@@ -2630,20 +2676,6 @@ button.ach {
   height: 16px;
   color: var(--gold-2);
   flex: none;
-}
-
-.drawer.centre .input {
-  min-height: 40px;
-  padding: 8px 12px;
-  font-size: 14px;
-}
-
-.drawer.centre .chip {
-  align-self: flex-start;
-}
-
-.drawer.centre .row.wrap .chip {
-  align-self: auto;
 }
 
 /* Short seats (five or six players on a phone): trim the tiles and drop the note. */
