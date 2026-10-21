@@ -33,6 +33,7 @@ import {
   toggleInitiative,
   toggleKO,
   toggleMonarch,
+  toggleSolRing,
   updateSeat,
 } from '../dist-tests/life.js'
 
@@ -127,6 +128,20 @@ test('monarch and initiative pass around and toggle off', () => {
   g = toggleInitiative(g, 0)
   assert.equal(g.initiative, 0)
   assert.equal(inProgress(g), true)
+})
+
+test('a turn-one Sol Ring is marked per seat, counts as play, and does not outlive the game', () => {
+  let g = newGame(4, 40)
+  assert.ok(g.seats.every((s) => s.solRing === false))
+  g = toggleSolRing(g, 1)
+  g = toggleSolRing(g, 3)
+  assert.equal(g.seats[1].solRing, true)
+  assert.equal(g.seats[3].solRing, true, 'two seats can both have one')
+  assert.equal(g.seats[0].solRing, false)
+  assert.equal(inProgress(g), true)
+  assert.equal(toggleSolRing(g, 1).seats[1].solRing, false, 'same seat again clears it')
+  assert.equal(parseGame(JSON.parse(JSON.stringify(g))).seats[3].solRing, true)
+  assert.equal(newGame(4, 40, g).seats[1].solRing, false)
 })
 
 test('the first player sticks until cleared or a new game', () => {
@@ -382,6 +397,7 @@ test('parseGame round-trips a game and rejects junk', () => {
   assert.equal(back.seats[0].colour, 'pink')
   assert.equal(back.seats[0].counters.poison, 0)
   assert.equal(back.seats[0].ko, false, 'rows stored before the flag existed are not out')
+  assert.equal(back.seats[0].solRing, false, 'nor did they open with a Sol Ring')
   delete odd.log
   delete odd.turn
   const older = parseGame(odd)
