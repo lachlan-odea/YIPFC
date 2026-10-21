@@ -111,6 +111,13 @@ export default function LifeScreen({ onExit }: { onExit: () => void }) {
     start(players, startingLife)
   }
 
+  /** Back to starting totals, one question, then spin for who goes first. */
+  function resetGame() {
+    if (inProgress(game) && !confirm('Reset everyone to starting life and clear all counters?')) return
+    start(game.players, game.startingLife)
+    pickFirst()
+  }
+
   /** Spin a highlight around the table and land on someone. */
   function pickFirst() {
     setMenu(false)
@@ -156,7 +163,7 @@ export default function LifeScreen({ onExit }: { onExit: () => void }) {
       <button className="life-menu-btn" onClick={() => setMenu(true)} aria-label="Game menu" title="Game menu">
         <Icons.dice />
       </button>
-      {menu && <Menu game={game} onClose={() => setMenu(false)} onSetup={changeSetup} onPickFirst={pickFirst} onExit={onExit} />}
+      {menu && <Menu game={game} onClose={() => setMenu(false)} onSetup={changeSetup} onReset={resetGame} onPickFirst={pickFirst} onExit={onExit} />}
     </div>
   )
 }
@@ -725,12 +732,14 @@ function Menu({
   game,
   onClose,
   onSetup,
+  onReset,
   onPickFirst,
   onExit,
 }: {
   game: Game
   onClose: () => void
   onSetup: (players: number, startingLife: number) => void
+  onReset: () => void
   onPickFirst: () => void
   onExit: () => void
 }) {
@@ -798,12 +807,7 @@ function Menu({
           </div>
         )}
 
-        <button
-          className="btn danger block"
-          onClick={() => {
-            if (!inProgress(game) || confirm('Reset everyone to starting life and clear all counters?')) onSetup(game.players, game.startingLife)
-          }}
-        >
+        <button className="btn danger block" onClick={onReset}>
           Reset game
         </button>
 

@@ -151,7 +151,7 @@ the right way up.
   six), starting life (20, 25, 30, 40 or your own), a spinner to pick who goes
   first (the winning seat keeps a **1st** marker by their name for the rest of
   the game, and the seat card can set it by hand), d6, d20 and a coin, and
-  reset. It is also the way back to the pool.
+  reset, which spins for who goes first again. It is also the way back to the pool.
 - When a player is out (no life, ten poison, 21 damage from one commander, or
   the K.O. button) their panel dims, a skull and crossbones takes the place of
   the life total, and some famous last words appear beneath it. Life can still
