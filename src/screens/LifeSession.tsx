@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties }
 import { usePool } from '../lib/store'
 import { Icons, Sheet, errorText, useToast } from '../components/ui'
 import { EndGameSheet, StatsSheet } from '../components/GameStats'
-import { SEAT_COLOURS, activeSeats, alive, isDead, isOver, passTurn, startTurns, undoPass, type Game } from '../lib/life'
+import { LETHAL, SEAT_COLOURS, activeSeats, alive, isDead, isOver, opponents, passTurn, startTurns, undoPass, type Game } from '../lib/life'
 import { freshSessionSeat, resetFields, sessionPatch, toGame, type LiveSession } from '../lib/session'
 import { Pane, buzz, useOrientationLock, usePortrait, useWakeLock } from './LifeScreen'
 
@@ -152,6 +152,10 @@ export default function LifeSession({ id, onLeave, onExit }: { id: string; onLea
       <div className="strip" aria-label="Other players">
         {others.map((s) => {
           const dead = isDead(s)
+          // Commander damage this player has taken, per attacker, so the table can see who is close to 21.
+          const cmdr = opponents(game, s.id)
+            .map((o) => ({ from: o, n: s.commander[o.id] ?? 0 }))
+            .filter((d) => d.n > 0)
           return (
             <div
               key={s.id}
@@ -168,6 +172,19 @@ export default function LifeSession({ id, onLeave, onExit }: { id: string; onLea
                 {s.commanderName ?? ''}
                 {s.counters.poison > 0 && ` · ☠ ${s.counters.poison}`}
               </span>
+              {cmdr.length > 0 && (
+                <span className="strip-badges">
+                  {cmdr.map(({ from, n }) => (
+                    <span
+                      key={from.id}
+                      className={`pane-badge cmdr ${n >= LETHAL.commander ? 'lethal' : ''}`}
+                      title={`${n} commander damage from ${from.id === myIdx ? 'you' : from.name}`}
+                    >
+                      <i className="swatch-dot" style={{ background: SEAT_COLOURS[from.colour] }} aria-hidden="true" />⚔ {n}
+                    </span>
+                  ))}
+                </span>
+              )}
             </div>
           )
         })}

@@ -2933,6 +2933,14 @@ button.ach {
   font-variant-numeric: tabular-nums;
 }
 
+.strip-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  font-size: 11px;
+  margin-top: 2px;
+}
+
 .strip-sub {
   font-size: 11px;
   color: var(--ink-3);
