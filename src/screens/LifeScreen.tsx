@@ -225,7 +225,7 @@ function Pane({
 
   return (
     <section
-      className={`pane ${dead ? 'dead' : ''} ${spot ? (spot.final ? 'spot final' : 'spot') : ''}`}
+      className={`pane ${dead ? 'dead' : ''} ${game.monarch === seat.id ? 'monarch' : ''} ${game.initiative === seat.id ? 'initiative' : ''} ${spot ? (spot.final ? 'spot final' : 'spot') : ''}`}
       style={paneStyle}
       aria-label={`${seat.name}, ${seat.life} life`}
     >

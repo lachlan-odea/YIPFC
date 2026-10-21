@@ -1862,6 +1862,40 @@ button.ach {
   transition: opacity 0.3s ease, filter 0.3s ease, box-shadow 0.15s ease, border-color 0.15s ease;
 }
 
+/*
+ * Table-wide markers you should spot from across the table: the monarch's
+ * seat is tiled with faint crowns, the initiative holder's with daggers.
+ * The tile sits on the turned face, under the halves, so it reads upright for
+ * that player and taps and the number are unaffected.
+ */
+.pane.monarch .face::before,
+.pane.initiative .face::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-repeat: repeat;
+  background-size: 72px 72px;
+  opacity: 0.13;
+  mask-image: radial-gradient(ellipse at center, transparent 18%, #000 75%);
+  -webkit-mask-image: radial-gradient(ellipse at center, transparent 18%, #000 75%);
+}
+
+.pane.monarch .face::before {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='72' height='72' viewBox='0 0 72 72'%3E%3Cpath d='M14 46h44l4-24-13 10-13-16-13 16-13-10z' fill='none' stroke='%23fbe9c0' stroke-width='3' stroke-linejoin='round'/%3E%3Cpath d='M16 52h40' stroke='%23fbe9c0' stroke-width='3' stroke-linecap='round'/%3E%3Ccircle cx='36' cy='18' r='2.5' fill='%23fbe9c0'/%3E%3Ccircle cx='14' cy='22' r='2.5' fill='%23fbe9c0'/%3E%3Ccircle cx='58' cy='22' r='2.5' fill='%23fbe9c0'/%3E%3C/svg%3E");
+}
+
+.pane.initiative .face::before {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='72' height='72' viewBox='0 0 72 72'%3E%3Cg fill='none' stroke='%23fbe9c0' stroke-width='3' stroke-linecap='round' stroke-linejoin='round' transform='rotate(-45 36 36)'%3E%3Cpath d='M36 10l5 8v24l-5 6-5-6V18z'/%3E%3Cpath d='M24 48h24M36 48v12'/%3E%3C/g%3E%3C/svg%3E");
+}
+
+/* Both at once: crowns one way, daggers offset the other. */
+.pane.monarch.initiative .face::before {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='72' height='72' viewBox='0 0 72 72'%3E%3Cpath d='M14 46h44l4-24-13 10-13-16-13 16-13-10z' fill='none' stroke='%23fbe9c0' stroke-width='3' stroke-linejoin='round'/%3E%3Cpath d='M16 52h40' stroke='%23fbe9c0' stroke-width='3' stroke-linecap='round'/%3E%3Ccircle cx='36' cy='18' r='2.5' fill='%23fbe9c0'/%3E%3Ccircle cx='14' cy='22' r='2.5' fill='%23fbe9c0'/%3E%3Ccircle cx='58' cy='22' r='2.5' fill='%23fbe9c0'/%3E%3C/svg%3E"), url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='72' height='72' viewBox='0 0 72 72'%3E%3Cg fill='none' stroke='%23fbe9c0' stroke-width='3' stroke-linecap='round' stroke-linejoin='round' transform='rotate(-45 36 36)'%3E%3Cpath d='M36 10l5 8v24l-5 6-5-6V18z'/%3E%3Cpath d='M24 48h24M36 48v12'/%3E%3C/g%3E%3C/svg%3E");
+  background-position: 0 0, 36px 36px;
+}
+
 .pane.dead {
   opacity: 0.55;
   filter: saturate(0.3);
