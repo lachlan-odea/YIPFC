@@ -181,7 +181,9 @@ the right way up.
   between every pair of players, by finishing order (the winner first, then
   whoever lasted longest), with the usual K of 32 shared across the
   opponents so a four-player win and a two-player win move ratings about the
-  same amount. Commanders and players are rated separately.
+  same amount. Commanders and players are rated separately. A seat with no
+  commander named still counts as an opponent at 1000, so a named commander
+  is rated from its very first game.
 
 Seats take the pod's names to begin with, the screen stays awake while the
 counter is open, and the game is kept on the phone, so leaving the tab and

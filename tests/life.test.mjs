@@ -448,10 +448,17 @@ test('Elo: a win gains what the loss loses, favourites gain less, and games sum 
   assert.ok(Math.abs(total - 4 * ELO_START) < 1e-9)
   assert.equal(r.get('c-w').rating, ELO_START + 16, 'three wins at a third of K each')
   assert.ok(r.get('c-y').rating < r.get('c-x').rating && r.get('c-x').rating < r.get('c-z').rating)
-  // A seat with nothing to rate sits the game out; a game with one rated seat changes nothing.
+  // An unnamed opponent still counts, at the starting rating, but earns nothing itself.
   const guest = game('5', '2026-01-04T00:00:00Z', [result(0, 'a', { won: true }), result(1, 'g', { commander: null, out_turn: 2 })])
   r = eloRatings([guest], byCommander)
-  assert.equal(r.size, 0)
+  assert.equal(r.size, 1)
+  assert.equal(r.get('c-a').rating, ELO_START + 16, 'a named commander is rated from its first game')
+  // Losing to a table of unnamed opponents costs the same as losing to named ones.
+  const lost = game('6', '2026-01-05T00:00:00Z', [result(0, 'a', { out_turn: 3 }), result(1, 'g', { commander: null, won: true }), result(2, 'h', { commander: null })])
+  assert.equal(eloRatings([lost], byCommander).get('c-a').rating, ELO_START - 16)
+  // A game with nobody named changes nothing.
+  const nobody = game('7', '2026-01-06T00:00:00Z', [result(0, 'g', { commander: null, won: true }), result(1, 'h', { commander: null })])
+  assert.equal(eloRatings([nobody], byCommander).size, 0)
   // By player instead of commander.
   const rp = eloRatings([one], (x) => x.player_id)
   assert.equal(rp.get('p-a').rating, ELO_START + 16)

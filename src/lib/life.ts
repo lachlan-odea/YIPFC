@@ -499,7 +499,9 @@ export type Rating = { rating: number; games: number }
  * every pair of players is scored as a match (win, loss or tie by finishing
  * place) with K shared between the opponents, so a four-player win is worth
  * about the same as a two-player one. `key` names what is being rated for
- * a seat (a commander, a player); seats without one sit the game out.
+ * a seat (a commander, a player). A seat without one still plays its part
+ * as an opponent, at the starting rating, but earns no rating itself, so a
+ * named commander is rated from its first game whoever it faced.
  */
 export function eloRatings(records: GameRecord[], key: (r: SeatResult) => string | null, k = ELO_K): Map<string, Rating> {
   const ratings = new Map<string, Rating>()
@@ -507,23 +509,27 @@ export function eloRatings(records: GameRecord[], key: (r: SeatResult) => string
   const ordered = records.slice().sort((a, b) => a.ended_at.localeCompare(b.ended_at))
   for (const g of ordered) {
     const places = placements(g)
-    const seats = g.players.map((r) => ({ id: key(r), place: places.get(r.seat) ?? 1 })).filter((x): x is { id: string; place: number } => !!x.id)
-    if (seats.length < 2) continue
-    const before = new Map(seats.map((s) => [s.id, get(s.id).rating]))
+    const seats = g.players.map((r) => ({ id: key(r), place: places.get(r.seat) ?? 1 }))
+    if (seats.length < 2 || !seats.some((s) => s.id)) continue
+    const before = new Map(seats.flatMap((s) => (s.id ? [[s.id, get(s.id).rating] as const] : [])))
+    const rating = (id: string | null) => (id ? before.get(id)! : ELO_START)
     const delta = new Map<string, number>()
+    const bump = (id: string | null, d: number) => {
+      if (id) delta.set(id, (delta.get(id) ?? 0) + d)
+    }
     const share = k / (seats.length - 1)
     for (let i = 0; i < seats.length; i++)
       for (let j = i + 1; j < seats.length; j++) {
         const a = seats[i]
         const b = seats[j]
-        if (a.id === b.id) continue
+        if (a.id && a.id === b.id) continue
         const score = a.place < b.place ? 1 : a.place > b.place ? 0 : 0.5
-        const expected = 1 / (1 + 10 ** ((before.get(b.id)! - before.get(a.id)!) / 400))
+        const expected = 1 / (1 + 10 ** ((rating(b.id) - rating(a.id)) / 400))
         const d = share * (score - expected)
-        delta.set(a.id, (delta.get(a.id) ?? 0) + d)
-        delta.set(b.id, (delta.get(b.id) ?? 0) - d)
+        bump(a.id, d)
+        bump(b.id, -d)
       }
-    for (const id of new Set(seats.map((s) => s.id))) {
+    for (const id of new Set(seats.map((s) => s.id).filter((x): x is string => !!x))) {
       const cur = get(id)
       ratings.set(id, { rating: cur.rating + (delta.get(id) ?? 0), games: cur.games + 1 })
     }
