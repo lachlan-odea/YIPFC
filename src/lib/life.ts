@@ -394,9 +394,16 @@ export type Tally = {
   avgDealt: number | null
   /** Average turn eliminated on, over the games that were lost by elimination. */
   avgOutTurn: number | null
+  /** Lifetime totals across every game picked. */
+  totalGained: number
+  totalLost: number
+  totalDealt: number
+  totalTaken: number
+  totalTurns: number
 }
 
-const mean = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null)
+const sum = (xs: number[]) => xs.reduce((a, b) => a + b, 0)
+const mean = (xs: number[]) => (xs.length ? sum(xs) / xs.length : null)
 
 /** Roll up every seat result that `pick` accepts across the records. */
 export function tally(records: GameRecord[], pick: (r: SeatResult, g: GameRecord) => boolean): Tally {
@@ -413,11 +420,122 @@ export function tally(records: GameRecord[], pick: (r: SeatResult, g: GameRecord
     avgLost: mean(hits.map((h) => h.r.life_lost)),
     avgDealt: mean(hits.map((h) => h.r.commander_dealt)),
     avgOutTurn: mean(outs),
+    totalGained: sum(hits.map((h) => h.r.life_gained)),
+    totalLost: sum(hits.map((h) => h.r.life_lost)),
+    totalDealt: sum(hits.map((h) => h.r.commander_dealt)),
+    totalTaken: sum(hits.map((h) => h.r.commander_taken)),
+    totalTurns: sum(hits.map((h) => h.r.turns)),
+  }
+}
+
+export type Lifetime = {
+  games: number
+  /** Turns of play across all games, counting every player's turn. */
+  turns: number
+  gained: number
+  lost: number
+  /** Commander damage dealt (which is also commander damage taken). */
+  commander: number
+  eliminations: number
+  /** Turns the longest game ran, or null with no games. */
+  longest: number | null
+  /** The biggest single-game life loss by one player, with who it was. */
+  biggestLoss: { name: string; commander: string | null; lost: number } | null
+}
+
+/** Everything that has happened across the whole record: the pod's history in numbers. */
+export function lifetime(records: GameRecord[]): Lifetime {
+  const seats = records.flatMap((g) => g.players)
+  let biggest: Lifetime['biggestLoss'] = null
+  for (const r of seats) if (r.life_lost > 0 && (!biggest || r.life_lost > biggest.lost)) biggest = { name: r.name, commander: r.commander, lost: r.life_lost }
+  return {
+    games: records.length,
+    turns: sum(records.map((g) => g.turns)),
+    gained: sum(seats.map((r) => r.life_gained)),
+    lost: sum(seats.map((r) => r.life_lost)),
+    commander: sum(seats.map((r) => r.commander_dealt)),
+    eliminations: seats.filter((r) => r.out_turn !== null).length,
+    longest: records.length ? Math.max(...records.map((g) => g.turns)) : null,
+    biggestLoss: biggest,
   }
 }
 
 /** Commanders are typed by hand, so "Atraxa" and "atraxa " are the same one. */
 export const commanderKey = (name: string | null | undefined): string => (name ?? '').trim().toLowerCase().replace(/\s+/g, ' ')
+
+/* ---------- Elo ---------- */
+
+export const ELO_START = 1000
+const ELO_K = 32
+
+/**
+ * Finishing order for one game, 1 being best, with ties. The winner comes
+ * first; anyone still in at the end but not the winner shares the next
+ * place; everyone else ranks by how long they lasted.
+ */
+export function placements(record: GameRecord): Map<number, number> {
+  const rank = (r: SeatResult) => (r.won ? [0, 0] : r.out_turn === null ? [1, 0] : [2, -r.out_turn])
+  const sorted = record.players.slice().sort((a, b) => {
+    const [a0, a1] = rank(a)
+    const [b0, b1] = rank(b)
+    return a0 - b0 || a1 - b1
+  })
+  const out = new Map<number, number>()
+  let place = 0
+  let prev: string | null = null
+  sorted.forEach((r, i) => {
+    const k = rank(r).join(':')
+    if (k !== prev) place = i + 1
+    prev = k
+    out.set(r.seat, place)
+  })
+  return out
+}
+
+export type Rating = { rating: number; games: number }
+
+/**
+ * Elo across saved games, oldest first, as a round-robin inside each game:
+ * every pair of players is scored as a match (win, loss or tie by finishing
+ * place) with K shared between the opponents, so a four-player win is worth
+ * about the same as a two-player one. `key` names what is being rated for
+ * a seat (a commander, a player). A seat without one still plays its part
+ * as an opponent, at the starting rating, but earns no rating itself, so a
+ * named commander is rated from its first game whoever it faced.
+ */
+export function eloRatings(records: GameRecord[], key: (r: SeatResult) => string | null, k = ELO_K): Map<string, Rating> {
+  const ratings = new Map<string, Rating>()
+  const get = (id: string) => ratings.get(id) ?? { rating: ELO_START, games: 0 }
+  const ordered = records.slice().sort((a, b) => a.ended_at.localeCompare(b.ended_at))
+  for (const g of ordered) {
+    const places = placements(g)
+    const seats = g.players.map((r) => ({ id: key(r), place: places.get(r.seat) ?? 1 }))
+    if (seats.length < 2 || !seats.some((s) => s.id)) continue
+    const before = new Map(seats.flatMap((s) => (s.id ? [[s.id, get(s.id).rating] as const] : [])))
+    const rating = (id: string | null) => (id ? before.get(id)! : ELO_START)
+    const delta = new Map<string, number>()
+    const bump = (id: string | null, d: number) => {
+      if (id) delta.set(id, (delta.get(id) ?? 0) + d)
+    }
+    const share = k / (seats.length - 1)
+    for (let i = 0; i < seats.length; i++)
+      for (let j = i + 1; j < seats.length; j++) {
+        const a = seats[i]
+        const b = seats[j]
+        if (a.id && a.id === b.id) continue
+        const score = a.place < b.place ? 1 : a.place > b.place ? 0 : 0.5
+        const expected = 1 / (1 + 10 ** ((rating(b.id) - rating(a.id)) / 400))
+        const d = share * (score - expected)
+        bump(a.id, d)
+        bump(b.id, -d)
+      }
+    for (const id of new Set(seats.map((s) => s.id).filter((x): x is string => !!x))) {
+      const cur = get(id)
+      ratings.set(id, { rating: cur.rating + (delta.get(id) ?? 0), games: cur.games + 1 })
+    }
+  }
+  return ratings
+}
 
 export const commanderTally = (records: GameRecord[], commander: string): Tally => {
   const key = commanderKey(commander)

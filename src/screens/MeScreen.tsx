@@ -3,6 +3,7 @@ import { usePool } from '../lib/store'
 import PodPanel from '../components/PodPanel'
 import { errorText, useToast } from '../components/ui'
 import Achievements from '../components/Achievements'
+import { StatsSummary } from '../components/GameStats'
 
 type InstallPrompt = Event & { prompt: () => Promise<void> }
 
@@ -109,6 +110,8 @@ export default function MeScreen() {
           </div>
         </div>
       )}
+
+      <StatsSummary />
 
       <Achievements />
 

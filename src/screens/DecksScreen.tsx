@@ -5,6 +5,7 @@ import { coverage, deckSize } from '../lib/deck'
 import { uid } from '../lib/uid'
 import { errorText, useToast } from '../components/ui'
 import DeckEditor from '../components/DeckEditor'
+import { StatsSheet } from '../components/GameStats'
 
 export default function DecksScreen() {
   const pool = usePool()
@@ -13,6 +14,7 @@ export default function DecksScreen() {
   const [openId, setOpenId] = useState<string | null>(null)
   const [newName, setNewName] = useState('')
   const [creating, setCreating] = useState(false)
+  const [stats, setStats] = useState(false)
 
   const mine = pool.decks.filter((d) => d.owner_id === me.id)
   const others = pool.decks.filter((d) => d.owner_id !== me.id)
@@ -46,11 +48,17 @@ export default function DecksScreen() {
           </p>
         </div>
         {!creating && (
-          <button className="btn primary" onClick={() => setCreating(true)}>
-            New deck
-          </button>
+          <div className="row">
+            <button className="btn quiet" onClick={() => setStats(true)} title="Commander and player records from saved games">
+              Records
+            </button>
+            <button className="btn primary" onClick={() => setCreating(true)}>
+              New deck
+            </button>
+          </div>
         )}
       </div>
+      {stats && <StatsSheet onClose={() => setStats(false)} />}
 
       {creating && (
         <form onSubmit={create} className="row" style={{ gap: 8 }}>
