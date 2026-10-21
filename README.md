@@ -133,7 +133,8 @@ the right way up.
   off life as well); the panel then shows a badge per attacker in their
   colour, so everyone can see who has dealt what. Swipe down from its top edge for **counters**: poison,
   energy, experience and commander tax, plus the monarch and initiative
-  markers. Counters you hold show as a column down the outer edge of your
+  markers and a **T1 Sol Ring** flag for the seat that opened with one (a ring
+  by their name). Counters you hold show as a column down the outer edge of your
   panel, and commander damage as a badge per attacker under the total. The
   monarch's whole panel is tiled with faint crowns, and the
   initiative holder's with daggers, so both can be spotted from across the

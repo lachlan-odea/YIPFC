@@ -28,6 +28,7 @@ import {
   toggleInitiative,
   toggleKO,
   toggleMonarch,
+  toggleSolRing,
   undoPass,
   updateSeat,
   commanderKey,
@@ -340,6 +341,11 @@ function Pane({
                 🗡️
               </span>
             )}
+            {seat.solRing && (
+              <span title="Turn-one Sol Ring" aria-label="Turn-one Sol Ring">
+                💍
+              </span>
+            )}
             {game.first === seat.id && (
               <span className="first-tag" title="Went first" aria-label="Went first">
                 1st
@@ -428,11 +434,16 @@ function Skull() {
 /**
  * Tap for one, hold for `holdStep` every `repeat` ms. Pointer capture keeps the gesture
  * on the half it started on; a keyboard "click" (detail 0) counts as a tap.
+ *
+ * Only a press that began on this half counts. When a drawer is swiped shut it
+ * unmounts under the finger, and the pointer-up that follows lands on whichever
+ * half is underneath; without a matching pointer-down that is not a tap.
  */
 function useHold(apply: (n: number) => void, { holdStep = HOLD_STEP, repeat: every = HOLD_REPEAT } = {}) {
   const delay = useRef(0)
   const repeat = useRef(0)
   const held = useRef(false)
+  const pressed = useRef(false)
   const stop = useCallback(() => {
     clearTimeout(delay.current)
     clearInterval(repeat.current)
@@ -447,6 +458,7 @@ function useHold(apply: (n: number) => void, { holdStep = HOLD_STEP, repeat: eve
       } catch {
         /* synthetic or already-released pointer: the tap still counts */
       }
+      pressed.current = true
       held.current = false
       stop()
       delay.current = window.setTimeout(() => {
@@ -457,10 +469,14 @@ function useHold(apply: (n: number) => void, { holdStep = HOLD_STEP, repeat: eve
     },
     onPointerUp: () => {
       stop()
-      if (!held.current) apply(sign)
+      if (pressed.current && !held.current) apply(sign)
+      pressed.current = false
       held.current = true // so the trailing click is ignored
     },
-    onPointerCancel: stop,
+    onPointerCancel: () => {
+      stop()
+      pressed.current = false
+    },
     onClick: (e: ReactMouseEvent) => {
       if (e.detail === 0) apply(sign)
     },
@@ -622,7 +638,7 @@ function DamageDrawer({ seat, game, rotate, onGame, onClose }: DrawerProps) {
   )
 }
 
-/** Poison and the other counters, plus monarch and initiative, down from the seat's top edge. */
+/** Poison and the other counters, plus monarch, initiative and the turn-one Sol Ring, down from the seat's top edge. */
 function CountersDrawer({ seat, game, rotate, onGame, onClose }: DrawerProps) {
   return (
     <Drawer
@@ -661,6 +677,9 @@ function CountersDrawer({ seat, game, rotate, onGame, onClose }: DrawerProps) {
         </button>
         <button className="chip" aria-pressed={game.initiative === seat.id} onClick={() => onGame((g) => toggleInitiative(g, seat.id))}>
           🗡️ Initiative
+        </button>
+        <button className="chip" aria-pressed={seat.solRing} onClick={() => onGame((g) => toggleSolRing(g, seat.id))} title="Played a Sol Ring on turn one">
+          💍 T1 Sol Ring
         </button>
       </div>
     </Drawer>

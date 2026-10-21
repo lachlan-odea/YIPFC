@@ -53,6 +53,8 @@ export type Seat = {
   playerId: string | null
   /** The commander they are playing, typed in, so results can be tallied against it. */
   commanderName: string | null
+  /** Played a Sol Ring on turn one. The table's favourite grudge, so it is worth marking. */
+  solRing: boolean
 }
 
 /**
@@ -102,6 +104,7 @@ function freshSeat(id: number, life: number, prev?: Seat, name?: string): Seat {
     ko: false,
     playerId: prev?.playerId ?? null,
     commanderName: prev?.commanderName ?? null,
+    solRing: false,
   }
 }
 
@@ -138,7 +141,8 @@ export function inProgress(game: Game): boolean {
     game.monarch !== null ||
     game.initiative !== null ||
     activeSeats(game).some(
-      (s) => s.ko || s.life !== game.startingLife || COUNTERS.some((c) => s.counters[c] > 0) || Object.values(s.commander).some((n) => n > 0),
+      (s) =>
+        s.ko || s.solRing || s.life !== game.startingLife || COUNTERS.some((c) => s.counters[c] > 0) || Object.values(s.commander).some((n) => n > 0),
     )
   )
 }
@@ -211,6 +215,11 @@ export function toggleMonarch(game: Game, seatId: number): Game {
 
 export function toggleInitiative(game: Game, seatId: number): Game {
   return { ...game, initiative: game.initiative === seatId ? null : seatId }
+}
+
+/** Mark (or unmark) a turn-one Sol Ring. Per seat: more than one player can manage it. */
+export function toggleSolRing(game: Game, seatId: number): Game {
+  return mapSeat(game, seatId, (s) => ({ ...s, solRing: !s.solRing }))
 }
 
 /** Mark who goes first; the same seat again clears it. */
@@ -552,6 +561,7 @@ export function parseGame(raw: unknown): Game | null {
       playerId: str(s.playerId),
       // Saves from before the field was a commander name carried a deck name instead.
       commanderName: str(s.commanderName) ?? str((s as { deckName?: unknown }).deckName),
+      solRing: !!s.solRing,
     })
   }
   const log: GameEvent[] = Array.isArray(g.log)
