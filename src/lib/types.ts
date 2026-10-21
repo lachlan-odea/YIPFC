@@ -91,6 +91,42 @@ export type Deck = {
   updated_at: string
 }
 
+/** One seat's line in a finished game. */
+export type SeatResult = {
+  seat: number
+  name: string
+  /** The pod player, when the seat was picked from the pod. */
+  player_id: string | null
+  deck_id: string | null
+  deck_name: string | null
+  colour: string
+  won: boolean
+  /** The turn they went out, or null if they were still in at the end. */
+  out_turn: number | null
+  final_life: number
+  life_gained: number
+  life_lost: number
+  commander_dealt: number
+  commander_taken: number
+  poison: number
+  turns: number
+}
+
+/** A finished game of Commander, kept so decks and players build up a record. */
+export type GameRecord = {
+  id: string
+  /** The pod it was played in, or null for a game outside any pod. */
+  pod_id: string | null
+  created_by: string
+  played_at: string
+  ended_at: string
+  /** Turns taken in total, counting every player's turn. */
+  turns: number
+  starting_life: number
+  winner_seat: number | null
+  players: SeatResult[]
+}
+
 /** What the import/scan flows hand to the store: a card minus its pool bookkeeping. */
 export type NewPoolCard = Omit<PoolCard, 'id' | 'owner_id' | 'created_at'>
 
@@ -101,6 +137,8 @@ export type Snapshot = {
   loans: Loan[]
   decks: Deck[]
   pods: Pod[]
+  /** Finished games in the current pod (or your own, outside a pod), newest first. */
+  games: GameRecord[]
 }
 
 export interface PoolStore {
@@ -137,6 +175,9 @@ export interface PoolStore {
   /** Insert or replace a whole deck. */
   saveDeck(deck: Deck): Promise<void>
   removeDeck(id: string): Promise<void>
+  /** Keep a finished game's result. */
+  saveGame(record: GameRecord): Promise<void>
+  removeGame(id: string): Promise<void>
 
   /** Shared mode only: move a pre-accounts player's cards, loans and decks onto the signed-in account. Returns cards moved. */
   claimLegacy?(oldPlayerId: string): Promise<number>

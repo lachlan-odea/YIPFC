@@ -32,7 +32,7 @@ import {
   type QuerySnapshot,
   type Unsubscribe,
 } from 'firebase/firestore'
-import type { AuthUser, Deck, Loan, LoanStatus, NewPoolCard, Player, Pod, PoolCard, PoolStore, Snapshot } from './types'
+import type { AuthUser, Deck, GameRecord, Loan, LoanStatus, NewPoolCard, Player, Pod, PoolCard, PoolStore, Snapshot } from './types'
 
 export type FirebaseConfig = {
   apiKey: string
@@ -69,7 +69,7 @@ export class FirebaseStore implements PoolStore {
   private auth: Auth
   private user: AuthUser | null = null
   private podId: string | null = null
-  private snap: Snapshot = { players: [], cards: [], loans: [], decks: [], pods: [] }
+  private snap: Snapshot = { players: [], cards: [], loans: [], decks: [], pods: [], games: [] }
   private listeners = new Set<() => void>()
   private authListeners = new Set<(u: AuthUser | null) => void>()
   private authStarted = false
@@ -198,7 +198,7 @@ export class FirebaseStore implements PoolStore {
     this.dataUnsubs.forEach((u) => u())
     this.dataUnsubs = []
     this.parts.clear()
-    this.snap = { players: [], cards: [], loans: [], decks: [], pods: [] }
+    this.snap = { players: [], cards: [], loans: [], decks: [], pods: [], games: [] }
     if (!this.user) {
       this.firstLoad = Promise.resolve()
       this.notify()
@@ -275,6 +275,13 @@ export class FirebaseStore implements PoolStore {
       attach(`loans-out:${i}`, query(collection(this.db, 'loans'), where('owner_id', 'in', chunk)))
       attach(`loans-in:${i}`, query(collection(this.db, 'loans'), where('borrower_id', 'in', chunk)))
     })
+    // Finished games belong to the pod they were played in; outside a pod, just your own.
+    attach(
+      'games',
+      this.podId
+        ? query(collection(this.db, 'games'), where('pod_id', '==', this.podId))
+        : query(collection(this.db, 'games'), where('created_by', '==', this.user!.id)),
+    )
     // Ready once the pod list and every listener in this set have delivered; then tell the UI,
     // since first deliveries do not notify on their own.
     this.firstLoad = Promise.all([this.podsReady, ...pending]).then(() => {
@@ -295,6 +302,7 @@ export class FirebaseStore implements PoolStore {
       cards: gather<PoolCard>('cards:', (a, b) => a.name.localeCompare(b.name)),
       decks: gather<Deck>('decks:', (a, b) => b.updated_at.localeCompare(a.updated_at)),
       loans: gather<Loan>('loans-', (a, b) => b.requested_at.localeCompare(a.requested_at)),
+      games: gather<GameRecord>('games', (a, b) => b.ended_at.localeCompare(a.ended_at)),
     }
   }
 
@@ -397,6 +405,14 @@ export class FirebaseStore implements PoolStore {
 
   async removeDeck(id: string) {
     await deleteDoc(doc(this.db, 'decks', id))
+  }
+
+  async saveGame(record: GameRecord) {
+    await setDoc(doc(this.db, 'games', record.id), strip(record))
+  }
+
+  async removeGame(id: string) {
+    await deleteDoc(doc(this.db, 'games', id))
   }
 
   // ---- migration from the pre-accounts data model ------------------------------------

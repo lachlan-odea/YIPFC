@@ -1,6 +1,6 @@
 import { get, set } from 'idb-keyval'
 import { uid } from './uid'
-import type { AuthUser, Deck, Loan, LoanStatus, NewPoolCard, Player, Pod, PoolCard, PoolStore, Snapshot } from './types'
+import type { AuthUser, Deck, GameRecord, Loan, LoanStatus, NewPoolCard, Player, Pod, PoolCard, PoolStore, Snapshot } from './types'
 
 const KEY = 'pod-pool/v1'
 // Storage key keeps the app's original name so devices that already joined stay signed in.
@@ -14,7 +14,7 @@ const ME_KEY = 'pod-pool/me'
  */
 export class LocalStore implements PoolStore {
   readonly mode = 'local' as const
-  private snap: Snapshot = { players: [], cards: [], loans: [], decks: [], pods: [] }
+  private snap: Snapshot = { players: [], cards: [], loans: [], decks: [], pods: [], games: [] }
   private listeners = new Set<() => void>()
   private authListeners = new Set<(u: AuthUser | null) => void>()
   private loaded = false
@@ -75,8 +75,8 @@ export class LocalStore implements PoolStore {
   async load(): Promise<Snapshot> {
     if (!this.loaded) {
       const stored = await get<Snapshot>(KEY)
-      // Older saves predate decks and pods; fill the gaps so the rest of the app can assume them.
-      if (stored) this.snap = { ...stored, decks: stored.decks ?? [], pods: [] }
+      // Older saves predate decks, pods and games; fill the gaps so the rest of the app can assume them.
+      if (stored) this.snap = { ...stored, decks: stored.decks ?? [], pods: [], games: stored.games ?? [] }
       this.loaded = true
     }
     return this.snap
@@ -94,6 +94,7 @@ export class LocalStore implements PoolStore {
       loans: [...this.snap.loans],
       decks: [...this.snap.decks],
       pods: [],
+      games: [...this.snap.games],
     }
     await set(KEY, this.snap)
     this.listeners.forEach((l) => l())
@@ -188,6 +189,16 @@ export class LocalStore implements PoolStore {
 
   async removeDeck(id: string) {
     this.snap.decks = this.snap.decks.filter((d) => d.id !== id)
+    await this.commit()
+  }
+
+  async saveGame(record: GameRecord) {
+    this.snap.games = [record, ...this.snap.games.filter((g) => g.id !== record.id)].sort((a, b) => b.ended_at.localeCompare(a.ended_at))
+    await this.commit()
+  }
+
+  async removeGame(id: string) {
+    this.snap.games = this.snap.games.filter((g) => g.id !== id)
     await this.commit()
   }
 }

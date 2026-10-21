@@ -9,7 +9,18 @@ import {
   adjustCommander,
   adjustCounter,
   adjustLife,
+  alive,
   commanderTotal,
+  deckTally,
+  gameRecord,
+  isOver,
+  passTurn,
+  playerTally,
+  seatStats,
+  startTurns,
+  tally,
+  turnOrder,
+  undoPass,
   inProgress,
   innerSides,
   isDead,
@@ -209,11 +220,136 @@ test('innerSides names the side edges that face another seat, not the phone edge
   assert.deepEqual(innerSides(layout(1).cells[0], layout(1)), [])
 })
 
+test('turn order runs clockwise from the bottom of the phone', () => {
+  assert.deepEqual(turnOrder(1), [0])
+  assert.deepEqual(turnOrder(2), [1, 0], 'bottom seat, then the one opposite')
+  assert.deepEqual(turnOrder(3), [2, 0, 1], 'bottom, up the left, then the right')
+  assert.deepEqual(turnOrder(4), [2, 0, 1, 3])
+  assert.deepEqual(turnOrder(5), [4, 2, 0, 1, 3])
+  assert.deepEqual(turnOrder(6), [4, 2, 0, 1, 3, 5])
+})
+
+test('turns start with the chosen seat and pass clockwise, skipping the dead', () => {
+  let g = newGame(4, 40)
+  assert.equal(g.turn, 0)
+  assert.equal(g.active, null)
+  g = startTurns(g, 2, 1000)
+  assert.equal(g.active, 2)
+  assert.equal(g.first, 2)
+  assert.equal(g.turn, 1)
+  assert.equal(g.startedAt, new Date(1000).toISOString())
+  g = passTurn(g)
+  assert.equal(g.active, 0)
+  assert.equal(g.turn, 2)
+  g = toggleKO(g, 1)
+  g = passTurn(g)
+  assert.equal(g.active, 3, 'seat 1 is out, so the turn skips to 3')
+  assert.equal(g.turn, 3)
+  // Spinning again mid-game only hands over the turn.
+  const again = startTurns(g, 0)
+  assert.equal(again.turn, 3)
+  assert.equal(again.active, 0)
+  // Before anyone has started, a pass starts with whoever goes first.
+  const fresh = passTurn(newGame(4, 40))
+  assert.equal(fresh.turn, 1)
+  assert.equal(fresh.active, 2)
+  // Once the game is over, passing does nothing.
+  let done = startTurns(newGame(2, 20), 1)
+  done = toggleKO(done, 0)
+  assert.equal(isOver(done), true)
+  assert.equal(passTurn(done), done)
+})
+
+test('undoPass takes back the last pass only', () => {
+  let g = startTurns(newGame(3, 40), 2)
+  g = passTurn(g)
+  g = passTurn(g)
+  assert.equal(g.active, 1)
+  assert.equal(g.turn, 3)
+  g = undoPass(g)
+  assert.equal(g.active, 0)
+  assert.equal(g.turn, 2)
+  g = undoPass(g)
+  assert.equal(g.active, 2)
+  assert.equal(g.turn, 1)
+  assert.equal(undoPass(g), g, 'nothing left to undo')
+})
+
+test('the log drives per-seat stats: life, commander damage, turns, and the turn a seat went out', () => {
+  let g = startTurns(newGame(3, 20), 0)
+  g = adjustLife(g, 0, 3)
+  g = adjustLife(g, 0, -5)
+  g = adjustLife(g, 0, 0)
+  g = adjustCommander(g, 0, 1, 4)
+  g = passTurn(g)
+  g = passTurn(g)
+  g = passTurn(g) // back to seat 0, turn 4
+  g = adjustLife(g, 0, -14) // 20 + 3 - 5 - 4 - 14 = 0: out on turn 4
+  const s0 = seatStats(g, 0)
+  assert.equal(s0.gained, 3)
+  assert.equal(s0.lost, 23, 'commander damage counts as life lost too')
+  assert.equal(s0.taken, 4)
+  assert.equal(s0.dealt, 0)
+  assert.equal(s0.turns, 2)
+  assert.equal(s0.outTurn, 4)
+  assert.equal(seatStats(g, 1).dealt, 4)
+  assert.equal(seatStats(g, 1).turns, 1)
+  // Coming back clears the elimination; a K.O. logs one again.
+  g = adjustLife(g, 0, 1)
+  assert.equal(seatStats(g, 0).outTurn, null)
+  g = toggleKO(g, 0)
+  assert.equal(seatStats(g, 0).outTurn, 4)
+  assert.equal(g.log.filter((e) => e.kind === 'ko').length, 1)
+  assert.equal(alive(g).length, 2)
+})
+
+test('gameRecord captures the table, and tallies roll it up by deck and player', () => {
+  let g = startTurns(newGame(2, 20), 1, 5000)
+  g = updateSeat(g, 0, { playerId: 'p-a', deckId: 'd-1', deckName: 'Atraxa' })
+  g = updateSeat(g, 1, { playerId: 'p-b', deckId: 'd-2', deckName: 'Krenko' })
+  g = adjustLife(g, 0, -20)
+  g = passTurn(g)
+  const rec = gameRecord(g, { id: 'g1', pod_id: 'pod', created_by: 'p-b', winner: 1, now: 65000 })
+  assert.equal(rec.played_at, new Date(5000).toISOString())
+  assert.equal(rec.ended_at, new Date(65000).toISOString())
+  assert.equal(rec.turns, 1, 'the pass after the game ended did not count')
+  assert.equal(rec.winner_seat, 1)
+  assert.equal(rec.players.length, 2)
+  assert.deepEqual(
+    rec.players.map((p) => [p.name, p.deck_id, p.won, p.out_turn, p.life_lost]),
+    [
+      ['Player 1', 'd-1', false, 1, 20],
+      ['Player 2', 'd-2', true, null, 0],
+    ],
+  )
+  // Another game the other way round.
+  let h = startTurns(newGame(2, 20), 0)
+  h = updateSeat(h, 0, { playerId: 'p-a', deckId: 'd-1', deckName: 'Atraxa' })
+  h = updateSeat(h, 1, { playerId: 'p-b', deckId: 'd-2', deckName: 'Krenko' })
+  h = passTurn(h)
+  h = passTurn(h)
+  h = adjustLife(h, 1, -20)
+  const rec2 = gameRecord(h, { id: 'g2', pod_id: 'pod', created_by: 'p-a', winner: 0 })
+  const atraxa = deckTally([rec, rec2], 'd-1')
+  assert.equal(atraxa.games, 2)
+  assert.equal(atraxa.wins, 1)
+  assert.equal(atraxa.winRate, 0.5)
+  assert.equal(atraxa.avgTurns, 2)
+  assert.equal(atraxa.avgLost, 10)
+  assert.equal(atraxa.avgOutTurn, 1)
+  assert.equal(playerTally([rec, rec2], 'p-b').wins, 1)
+  assert.equal(deckTally([rec, rec2], 'nope').games, 0)
+  assert.equal(tally([], () => true).winRate, null)
+})
+
 test('parseGame round-trips a game and rejects junk', () => {
   let g = newGame(5, 30, null, ['A'])
+  g = startTurns(g, 4)
   g = adjustCommander(g, 0, 1, 4)
   g = adjustCounter(g, 2, 'energy', 3)
   g = toggleMonarch(g, 4)
+  g = updateSeat(g, 1, { playerId: 'p', deckId: 'd', deckName: 'Deck' })
+  g = passTurn(g)
   assert.deepEqual(parseGame(JSON.parse(JSON.stringify(g))), g)
   assert.equal(parseGame(null), null)
   assert.equal(parseGame('nope'), null)
@@ -227,4 +363,10 @@ test('parseGame round-trips a game and rejects junk', () => {
   assert.equal(back.seats[0].colour, 'pink')
   assert.equal(back.seats[0].counters.poison, 0)
   assert.equal(back.seats[0].ko, false, 'rows stored before the flag existed are not out')
+  delete odd.log
+  delete odd.turn
+  const older = parseGame(odd)
+  assert.deepEqual(older.log, [])
+  assert.equal(older.turn, 0)
+  assert.equal(older.seats[1].deckId, 'd')
 })

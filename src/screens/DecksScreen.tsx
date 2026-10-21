@@ -5,6 +5,7 @@ import { coverage, deckSize } from '../lib/deck'
 import { uid } from '../lib/uid'
 import { errorText, useToast } from '../components/ui'
 import DeckEditor from '../components/DeckEditor'
+import { DeckRecord } from '../components/GameStats'
 
 export default function DecksScreen() {
   const pool = usePool()
@@ -117,7 +118,10 @@ function DeckTile({ deck, onOpen }: { deck: Deck; onOpen: () => void }) {
           {size} {size === 1 ? 'card' : 'cards'}
         </span>
       </div>
-      <div className="small muted">{mine ? 'Yours' : `${owner?.name ?? 'Someone'}'s`}</div>
+      <div className="row between small muted">
+        <span>{mine ? 'Yours' : `${owner?.name ?? 'Someone'}'s`}</span>
+        <DeckRecord deckId={deck.id} />
+      </div>
       {size > 0 && (
         <>
           <div className="cover-bar" aria-hidden="true">

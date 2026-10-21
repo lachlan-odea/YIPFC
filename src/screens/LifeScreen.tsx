@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
 import { usePool } from '../lib/store'
 import { Icons, Sheet, useToast } from '../components/ui'
+import { EndGameSheet, StatsSheet } from '../components/GameStats'
 import {
   COUNTERS,
   COUNTER_LABEL,
@@ -15,15 +16,19 @@ import {
   inProgress,
   innerSides,
   isDead,
+  isOver,
   lastWords,
   layout,
   newGame,
   opponents,
   parseGame,
+  passTurn,
   setFirst,
+  startTurns,
   toggleInitiative,
   toggleKO,
   toggleMonarch,
+  undoPass,
   updateSeat,
   type Cell,
   type Counter,
@@ -77,8 +82,21 @@ export default function LifeScreen({ onExit }: { onExit: () => void }) {
     return newGame(4, 40, null, names)
   })
   const [menu, setMenu] = useState(false)
+  const [end, setEnd] = useState(false)
+  const [stats, setStats] = useState(false)
   const [spot, setSpot] = useState<Spot>(null)
   const spotTimers = useRef<number[]>([])
+
+  // One player left: offer to save the result, once per game.
+  const over = isOver(game)
+  const endSeen = useRef(false)
+  useEffect(() => {
+    if (over && !endSeen.current) {
+      endSeen.current = true
+      setEnd(true)
+    }
+    if (!over) endSeen.current = false
+  }, [over])
 
   useEffect(() => {
     try {
@@ -133,7 +151,7 @@ export default function LifeScreen({ onExit }: { onExit: () => void }) {
           const final = i === steps
           const id = ids[i % ids.length]
           setSpot({ id, final })
-          if (final) setGame((g) => ({ ...g, first: id }))
+          if (final) setGame((g) => startTurns(g, id))
           buzz(final ? 40 : 6)
         }, delay),
       )
@@ -141,8 +159,21 @@ export default function LifeScreen({ onExit }: { onExit: () => void }) {
     spotTimers.current.push(window.setTimeout(() => setSpot(null), steps * 90 + 1000 + 4000))
   }
 
+  function pass() {
+    setGame((g) => passTurn(g))
+    buzz(12)
+  }
+
+  /** After a saved result: same table, fresh totals, spin again. */
+  function nextGame() {
+    setEnd(false)
+    start(game.players, game.startingLife)
+    pickFirst()
+  }
+
   const lay = layout(game.players)
   const style = { '--rows': lay.rows, '--cols': lay.cols } as CSSProperties
+  const activeSeat = game.active !== null ? game.seats[game.active] : null
 
   return (
     <div className={`life ${game.players === 1 ? 'single' : ''}`} style={style} onContextMenu={(e) => e.preventDefault()}>
@@ -163,7 +194,46 @@ export default function LifeScreen({ onExit }: { onExit: () => void }) {
       <button className="life-menu-btn" onClick={() => setMenu(true)} aria-label="Game menu" title="Game menu">
         <Icons.dice />
       </button>
-      {menu && <Menu game={game} onClose={() => setMenu(false)} onSetup={changeSetup} onReset={resetGame} onPickFirst={pickFirst} onExit={onExit} />}
+      {game.players > 1 &&
+        (activeSeat ? (
+          <button
+            className="turn-pill"
+            style={{ '--seat': SEAT_COLOURS[activeSeat.colour] } as CSSProperties}
+            onClick={pass}
+            aria-label={`${activeSeat.name}'s turn, turn ${game.turn}. Pass the turn`}
+            title="Pass the turn"
+          >
+            <i className="swatch-dot" aria-hidden="true" />
+            <b>{activeSeat.name}</b>
+            <span>Turn {game.turn}</span>
+            <Icons.next />
+          </button>
+        ) : (
+          <button className="turn-pill idle" onClick={pickFirst} title="Spin for who goes first">
+            Who goes first?
+          </button>
+        ))}
+      {menu && (
+        <Menu
+          game={game}
+          onClose={() => setMenu(false)}
+          onSetup={changeSetup}
+          onReset={resetGame}
+          onPickFirst={pickFirst}
+          onUndoPass={() => setGame((g) => undoPass(g))}
+          onEndGame={() => {
+            setMenu(false)
+            setEnd(true)
+          }}
+          onStats={() => {
+            setMenu(false)
+            setStats(true)
+          }}
+          onExit={onExit}
+        />
+      )}
+      {end && <EndGameSheet game={game} onClose={() => setEnd(false)} onSaved={nextGame} />}
+      {stats && <StatsSheet onClose={() => setStats(false)} />}
     </div>
   )
 }
@@ -236,7 +306,7 @@ function Pane({
 
   return (
     <section
-      className={`pane ${dead ? 'dead' : ''} ${game.monarch === seat.id ? 'monarch' : ''} ${game.initiative === seat.id ? 'initiative' : ''} ${spot ? (spot.final ? 'spot final' : 'spot') : ''}`}
+      className={`pane ${dead ? 'dead' : ''} ${game.active === seat.id ? 'active' : ''} ${game.monarch === seat.id ? 'monarch' : ''} ${game.initiative === seat.id ? 'initiative' : ''} ${spot ? (spot.final ? 'spot final' : 'spot') : ''}`}
       style={paneStyle}
       aria-label={`${seat.name}, ${seat.life} life`}
     >
@@ -274,8 +344,14 @@ function Pane({
                 1st
               </span>
             )}
+            {game.active === seat.id && (
+              <span className="turn-tag" title="Their turn" aria-label="Their turn">
+                ▶
+              </span>
+            )}
             {seat.name}
           </button>
+          {seat.deckName && <span className="deck-tag">{seat.deckName}</span>}
           <div className="life-wrap">
             <span className="sign" aria-hidden="true">
               −
@@ -604,6 +680,13 @@ function SeatCard({ seat, game, rotate, onGame, onClose }: DrawerProps) {
   const [focusGuest, setFocusGuest] = useState(false)
   const names = [...new Set(guest ? podNames : [...podNames, seat.name])].sort((a, b) => a.localeCompare(b))
   const setName = (name: string) => onGame((g) => updateSeat(g, seat.id, { name }))
+  const pickPlayer = (name: string) =>
+    onGame((g) => updateSeat(g, seat.id, { name, playerId: pool.players.find((p) => p.name === name)?.id ?? null }))
+  // That player's decks first; a guest can pick from anything in the pod.
+  const decks = pool.decks
+    .filter((d) => !seat.playerId || d.owner_id === seat.playerId)
+    .sort((a, b) => a.name.localeCompare(b.name))
+  const setDeck = (d: { id: string; name: string } | null) => onGame((g) => updateSeat(g, seat.id, { deckId: d?.id ?? null, deckName: d?.name ?? null }))
   return (
     <Drawer side="full" title="This seat" rotate={rotate} onClose={onClose}>
       <div className="seat-grid">
@@ -617,7 +700,7 @@ function SeatCard({ seat, game, rotate, onGame, onClose }: DrawerProps) {
               aria-checked={!guest && seat.name === n}
               onClick={() => {
                 setGuest(false)
-                setName(n)
+                pickPlayer(n)
               }}
             >
               {n}
@@ -632,11 +715,31 @@ function SeatCard({ seat, game, rotate, onGame, onClose }: DrawerProps) {
             onClick={() => {
               setGuest(true)
               setFocusGuest(true)
+              onGame((g) => updateSeat(g, seat.id, { playerId: null }))
             }}
           >
             Someone else…
             {guest && <Icons.check />}
           </button>
+        </div>
+        <div className="name-list decks" role="radiogroup" aria-label="Deck">
+          <button type="button" role="radio" className="name-row other" aria-checked={!seat.deckId} onClick={() => setDeck(null)}>
+            No deck
+            {!seat.deckId && <Icons.check />}
+          </button>
+          {seat.deckId && !decks.some((d) => d.id === seat.deckId) && (
+            <button type="button" role="radio" className="name-row" aria-checked onClick={() => {}}>
+              {seat.deckName}
+              <Icons.check />
+            </button>
+          )}
+          {decks.map((d) => (
+            <button key={d.id} type="button" role="radio" className="name-row" aria-checked={seat.deckId === d.id} onClick={() => setDeck(d)}>
+              {d.name}
+              {seat.deckId === d.id && <Icons.check />}
+            </button>
+          ))}
+          {decks.length === 0 && <span className="name-row faint">No decks on the Decks tab yet</span>}
         </div>
         <div className="seat-side">
           {guest && (
@@ -734,6 +837,9 @@ function Menu({
   onSetup,
   onReset,
   onPickFirst,
+  onUndoPass,
+  onEndGame,
+  onStats,
   onExit,
 }: {
   game: Game
@@ -741,8 +847,12 @@ function Menu({
   onSetup: (players: number, startingLife: number) => void
   onReset: () => void
   onPickFirst: () => void
+  onUndoPass: () => void
+  onEndGame: () => void
+  onStats: () => void
   onExit: () => void
 }) {
+  const passes = game.log.filter((e) => e.kind === 'pass').length
   const [result, setResult] = useState<string | null>(null)
   const roll = (sides: number) => setResult(`d${sides}: ${1 + Math.floor(Math.random() * sides)}`)
   const custom = STARTING_LIFE.includes(game.startingLife as (typeof STARTING_LIFE)[number]) ? null : game.startingLife
@@ -807,6 +917,18 @@ function Menu({
           </div>
         )}
 
+        <div className="row wrap">
+          <button className="btn" onClick={onUndoPass} disabled={passes === 0} title="Take back the last pass">
+            Undo last pass
+          </button>
+          <button className="btn" onClick={onEndGame} disabled={game.players < 2}>
+            End game…
+          </button>
+          <button className="btn" onClick={onStats}>
+            Games &amp; stats
+          </button>
+        </div>
+
         <button className="btn danger block" onClick={onReset}>
           Reset game
         </button>
@@ -814,8 +936,9 @@ function Menu({
         <p className="small faint">
           Tap the right half of a seat to gain life and the left half to lose it. Hold for ten at a time. Swipe in from the edge of a seat
           that faces the table for commander damage, swipe down from its top edge for poison and the other counters, or tap its
-          name to rename or recolour it. Swipe down on a drawer to put it away. The screen stays
-          on while the counter is open.
+          name to rename or recolour it. Swipe down on a drawer to put it away. The pill under the dice
+          passes the turn; turns, life gained and lost, and commander damage are kept for the result. The screen stays on while
+          the counter is open.
         </p>
 
         <button className="btn quiet block" onClick={onExit}>
