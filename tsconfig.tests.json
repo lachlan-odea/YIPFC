@@ -8,5 +8,5 @@
     "rootDir": "src/lib",
     "outDir": "dist-tests"
   },
-  "files": ["src/lib/parseList.ts", "src/lib/cardText.ts", "src/lib/deck.ts", "src/lib/achievements.ts"]
+  "files": ["src/lib/parseList.ts", "src/lib/cardText.ts", "src/lib/deck.ts", "src/lib/achievements.ts", "src/lib/life.ts"]
 }

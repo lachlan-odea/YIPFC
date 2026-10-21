@@ -232,7 +232,7 @@ main {
   inset: auto 0 0 0;
   z-index: 20;
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   height: var(--nav-h);
   padding-bottom: env(safe-area-inset-bottom);
   background: color-mix(in srgb, var(--felt-2) 94%, transparent);
@@ -1817,6 +1817,794 @@ button.ach {
 
 .kv dd {
   margin: 0;
+}
+
+/* ---------- life counter ---------- */
+
+/*
+ * The table fills the screen. Each seat is a grid cell whose .face is turned
+ * to read upright for the player on that edge of the phone; a turned face
+ * swaps its width and height, which container units give us without JS.
+ */
+.life {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: grid;
+  grid-template-rows: repeat(var(--rows), minmax(0, 1fr));
+  grid-template-columns: repeat(var(--cols), minmax(0, 1fr));
+  gap: 5px;
+  padding: calc(env(safe-area-inset-top) + 5px) calc(env(safe-area-inset-right) + 5px) calc(env(safe-area-inset-bottom) + 5px)
+    calc(env(safe-area-inset-left) + 5px);
+  background:
+    radial-gradient(ellipse 70% 40% at 15% -10%, rgba(255, 47, 164, 0.22), transparent 70%),
+    radial-gradient(ellipse 60% 40% at 100% 100%, rgba(40, 215, 240, 0.14), transparent 70%),
+    var(--felt);
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  overscroll-behavior: none;
+}
+
+.pane {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  container-type: size;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--seat) 55%, transparent);
+  background: linear-gradient(160deg, color-mix(in srgb, var(--seat) 34%, var(--felt-2)), color-mix(in srgb, var(--seat) 14%, var(--felt-2)) 70%);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.06) inset,
+    0 8px 24px -14px color-mix(in srgb, var(--seat) 70%, transparent);
+  transition: opacity 0.3s ease, filter 0.3s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.pane.dead {
+  opacity: 0.55;
+  filter: saturate(0.3);
+}
+
+.pane.spot {
+  border-color: var(--gold);
+  box-shadow:
+    inset 0 0 0 2px var(--gold),
+    0 0 28px -4px rgba(255, 47, 164, 0.7);
+}
+
+.pane.spot.final {
+  animation: spot-pop 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@keyframes spot-pop {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.03);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.face {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  translate: -50% -50%;
+  width: 100cqw;
+  height: 100cqh;
+  container-type: size;
+}
+
+.face.r90,
+.face.r270 {
+  width: 100cqh;
+  height: 100cqw;
+}
+
+.face.r90 {
+  rotate: 90deg;
+}
+
+.face.r180 {
+  rotate: 180deg;
+}
+
+.face.r270 {
+  rotate: 270deg;
+}
+
+/* The tap targets: the whole right half gains, the whole left half loses. */
+.half {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 50%;
+  touch-action: none;
+  transition: background 0.12s ease;
+}
+
+.half.minus {
+  left: 0;
+}
+
+.half.plus {
+  right: 0;
+}
+
+.half:active {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.half.minus:active {
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.half:focus-visible {
+  outline-offset: -3px;
+}
+
+/* Name, number and badges sit over the halves and let taps through. */
+.pane-mid {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1cqh;
+  pointer-events: none;
+}
+
+.pane-mid > * {
+  pointer-events: auto;
+}
+
+/* The − left of the number and + right of it say which half does what. */
+.sign {
+  pointer-events: none;
+  color: color-mix(in srgb, var(--ink) 45%, transparent);
+  font-size: clamp(14px, min(7cqw, 9cqh), 26px);
+  font-weight: 300;
+  line-height: 1;
+}
+
+.pane-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 80%;
+  padding: 3px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--felt) 60%, transparent);
+  color: var(--ink);
+  font-size: clamp(11px, min(5cqw, 7cqh), 16px);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Who went first, kept on the name pill after the spinner's flash has gone. */
+.first-tag {
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--gold);
+  color: var(--gold-ink);
+  font-size: 0.72em;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1.4;
+}
+
+.life-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 3cqw;
+  pointer-events: none;
+}
+
+.life-n {
+  display: block;
+  font-size: min(40cqw, 52cqh);
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  font-variation-settings: 'opsz' 96, 'wdth' 90;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+  text-shadow:
+    0 3px 18px rgba(0, 0, 0, 0.45),
+    0 0 40px color-mix(in srgb, var(--seat) 45%, transparent);
+}
+
+/* Out of the game: a skull where the total was, and some last words. */
+.life-n.skull {
+  font-size: min(34cqw, 44cqh);
+  letter-spacing: 0;
+}
+
+.skull-svg {
+  display: block;
+  width: 1.1em;
+  height: 1.1em;
+  filter: drop-shadow(0 3px 10px rgba(0, 0, 0, 0.45));
+}
+
+/* The cranium is filled with the seat's own colour so it sits in front of the bones. */
+.skull-svg .cranium {
+  fill: color-mix(in srgb, var(--seat) 24%, var(--felt-2));
+}
+
+.epitaph {
+  display: block;
+  max-width: 88%;
+  padding: 0 6px;
+  font-size: clamp(11px, min(4.6cqw, 6.5cqh), 16px);
+  font-style: italic;
+  line-height: 1.25;
+  text-align: center;
+  color: var(--ink-2);
+  quotes: '“' '”';
+  animation: rise 0.3s ease;
+}
+
+.delta {
+  position: absolute;
+  left: calc(100% + 4px);
+  top: 0;
+  font-size: min(9cqw, 12cqh);
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--felt) 75%, transparent);
+  color: var(--lime);
+  animation: fade 0.15s ease;
+}
+
+.delta.down {
+  color: var(--rose);
+}
+
+.pane-badges {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px;
+  min-height: 1em;
+  max-width: 90%;
+  font-size: clamp(10px, min(4.5cqw, 6cqh), 14px);
+}
+
+.pane-badge {
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--felt) 60%, transparent);
+  color: var(--ink-2);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.pane-badge.lethal,
+.pane-badge.out {
+  background: var(--rose);
+  color: #fff;
+}
+
+.goes-first {
+  position: absolute;
+  bottom: 6cqh;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: var(--gold);
+  color: var(--gold-ink);
+  font-size: clamp(11px, 5cqw, 15px);
+  font-weight: 700;
+  box-shadow: 0 6px 18px -6px rgba(255, 47, 164, 0.7);
+  animation: rise 0.25s ease;
+}
+
+/* Grab bars on the seat's own left and bottom edges: drag inwards to open its panel. */
+.swipe-edge {
+  position: absolute;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  touch-action: none;
+}
+
+.swipe-edge i {
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--ink) 35%, transparent);
+}
+
+.swipe-edge.left {
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 30px;
+  justify-content: flex-start;
+  padding-left: 6px;
+}
+
+.swipe-edge.left i {
+  width: 4px;
+  height: 36px;
+}
+
+.swipe-edge.bottom {
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 30px;
+  align-items: flex-end;
+  padding-bottom: 6px;
+}
+
+.swipe-edge.bottom i {
+  width: 36px;
+  height: 4px;
+}
+
+.swipe-edge.left:active {
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.1), transparent);
+}
+
+.swipe-edge.bottom:active {
+  background: linear-gradient(0deg, rgba(0, 0, 0, 0.2), transparent);
+}
+
+/*
+ * Drawers live inside the face, so they read the same way up as the seat.
+ * Damage slides in from the left, counters up from the bottom, and the seat
+ * card sits in the middle; the rest of the seat dims and closes them on tap.
+ */
+.drawer-scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  background: rgba(0, 0, 0, 0.4);
+  animation: fade 0.15s ease;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.drawer {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--felt-2);
+  color: var(--ink);
+  font-size: 13px;
+  box-shadow: 0 0 40px rgba(0, 0, 0, 0.5);
+}
+
+.drawer.left {
+  width: 100%;
+  height: 100%;
+  border-right: 1px solid var(--line-strong);
+  animation: from-left 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.drawer-scrim:has(.drawer.bottom) {
+  align-items: flex-end;
+}
+
+.drawer.bottom {
+  width: 100%;
+  max-height: 100%;
+  border-radius: 20px 20px 0 0;
+  border-top: 1px solid var(--line-strong);
+  animation: from-bottom 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.drawer-scrim:has(.drawer.centre) {
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+}
+
+.drawer.centre {
+  width: min(100%, 360px);
+  max-height: 100%;
+  border-radius: 14px;
+  border: 1px solid var(--line-strong);
+  animation: rise 0.2s ease;
+}
+
+/* A roomy seat leaves some of itself showing beside the damage drawer. */
+@container (min-width: 520px) {
+  .drawer.left {
+    width: 72%;
+    border-radius: 0 14px 14px 0;
+  }
+}
+
+@keyframes from-left {
+  from {
+    translate: -100% 0;
+  }
+}
+
+@keyframes from-bottom {
+  from {
+    translate: 0 100%;
+  }
+}
+
+.drawer-head {
+  flex: none;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 6px 8px 12px;
+  border-bottom: 1px solid var(--line);
+  touch-action: none;
+}
+
+.drawer-head strong {
+  font-size: 15px;
+  font-weight: 600;
+  font-variation-settings: 'opsz' 96, 'wdth' 92;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Grip line on the bottom drawer: it is the thing you drag back down. */
+.drawer.bottom .drawer-head {
+  padding-top: 12px;
+}
+
+.drawer.bottom .drawer-head::before {
+  content: '';
+  position: absolute;
+  top: 4px;
+  left: 50%;
+  translate: -50% 0;
+  width: 40px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--line-strong);
+}
+
+.drawer-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+
+.drawer.bottom .drawer-body,
+.drawer.centre .drawer-body {
+  flex: 0 1 auto;
+}
+
+/* Tiles grow to fill the seat; narrow seats get two across, wide ones three or four. */
+.ctiles {
+  /* Grows to fill, never shrinks below its rows: the body scrolls instead. */
+  flex: 1 0 auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 92px), 1fr));
+  grid-auto-rows: minmax(64px, 1fr);
+  gap: 6px;
+}
+
+/* The four counters sit two by two. */
+.ctiles.two {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.ctile {
+  position: relative;
+  min-width: 0;
+  min-height: 84px;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  background: var(--felt-3);
+}
+
+/* Opponent tiles carry that seat's colour the way a pod card carries cyan. */
+.ctile.tinted {
+  border-color: color-mix(in srgb, var(--tile) 55%, transparent);
+  background: linear-gradient(160deg, color-mix(in srgb, var(--tile) 18%, var(--felt-3)), var(--felt-3) 70%);
+  box-shadow: 0 8px 24px -14px color-mix(in srgb, var(--tile) 60%, transparent);
+}
+
+.ctile.lethal,
+.ctile.lethal.tinted {
+  border-color: var(--rose);
+  background: linear-gradient(160deg, color-mix(in srgb, var(--rose) 30%, var(--felt-3)), color-mix(in srgb, var(--rose) 12%, var(--felt-3)) 70%);
+  box-shadow: 0 8px 24px -14px rgba(255, 77, 109, 0.7);
+}
+
+/*
+ * Vertical tiles: top half adds, bottom half takes away, same as the seat's
+ * life total. Horizontal tiles: left takes away, right adds.
+ */
+.ctile-half {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: color-mix(in srgb, var(--ink) 45%, transparent);
+  font-size: 18px;
+  font-weight: 300;
+  line-height: 1;
+  touch-action: none;
+  transition: background 0.12s ease;
+}
+
+.ctile-half.vertical {
+  left: 0;
+  right: 0;
+  height: 50%;
+}
+
+.ctile-half.plus.vertical {
+  top: 0;
+  align-items: flex-start;
+  padding-top: 4px;
+}
+
+.ctile-half.minus.vertical {
+  bottom: 0;
+  align-items: flex-end;
+  padding-bottom: 4px;
+}
+
+.ctile-half.horizontal {
+  top: 0;
+  bottom: 0;
+  width: 50%;
+}
+
+.ctile-half.minus.horizontal {
+  left: 0;
+  justify-content: flex-start;
+  padding-left: 8px;
+}
+
+.ctile-half.plus.horizontal {
+  right: 0;
+  justify-content: flex-end;
+  padding-right: 8px;
+}
+
+.ctile-half:active {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.ctile-half.minus:active {
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.ctile-half:disabled {
+  opacity: 0.3;
+}
+
+.ctile-half:focus-visible {
+  outline-offset: -3px;
+}
+
+.ctile-mid {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 0 6px;
+  pointer-events: none;
+}
+
+.ctile-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 100%;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ctile.lethal .ctile-label {
+  color: var(--ink);
+}
+
+.ctile-mid output {
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  font-variation-settings: 'opsz' 96, 'wdth' 90;
+  font-variant-numeric: tabular-nums;
+}
+
+.drawer-note {
+  flex: none;
+  font-size: 11px;
+  color: var(--ink-3);
+  line-height: 1.3;
+}
+
+.drawer-chips {
+  flex: none;
+}
+
+.drawer-foot {
+  flex: none;
+  padding: 0 8px 8px;
+}
+
+.ko-btn {
+  min-height: 40px;
+}
+
+.drawer-chips .chip,
+.drawer.centre .chip {
+  min-height: 32px;
+  font-size: 12px;
+}
+
+/* The pod's players as a list inside the seat, so it turns with the seat. */
+.name-list {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--felt-2);
+}
+
+.name-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 38px;
+  padding: 0 12px;
+  font-size: 14px;
+  color: var(--ink-2);
+  text-align: left;
+}
+
+.name-row + .name-row {
+  border-top: 1px solid var(--line);
+}
+
+.name-row[aria-checked='true'] {
+  color: var(--ink);
+  font-weight: 600;
+  background: var(--felt-3);
+}
+
+.name-row.other {
+  color: var(--ink-3);
+}
+
+.name-row svg {
+  width: 16px;
+  height: 16px;
+  color: var(--gold-2);
+  flex: none;
+}
+
+.drawer.centre .input {
+  min-height: 40px;
+  padding: 8px 12px;
+  font-size: 14px;
+}
+
+.drawer.centre .chip {
+  align-self: flex-start;
+}
+
+.drawer.centre .row.wrap .chip {
+  align-self: auto;
+}
+
+/* Short seats (five or six players on a phone): trim the tiles and drop the note. */
+@container (max-height: 230px) {
+  .ctile {
+    min-height: 62px;
+  }
+  .ctile-mid output {
+    font-size: 20px;
+  }
+  .ctile-half {
+    font-size: 14px;
+  }
+  .ctiles {
+    grid-auto-rows: minmax(62px, 1fr);
+  }
+  /* Too short for two rows plus the toggles: counters go four across instead. */
+  .ctiles.two {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  .drawer-note {
+    display: none;
+  }
+}
+
+.swatch-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex: none;
+}
+
+.swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.swatch {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.4);
+}
+
+.swatch[aria-checked='true'] {
+  border-color: var(--felt-2);
+  box-shadow: 0 0 0 2px var(--gold-2);
+}
+
+/* The menu button sits where the seats meet; with one seat it drops to the bottom. */
+.life-menu-btn {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  translate: -50% -50%;
+  z-index: 5;
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--felt-2);
+  color: var(--ink);
+  border: 1px solid color-mix(in srgb, var(--gold) 55%, var(--line-strong));
+  box-shadow:
+    0 10px 30px -8px rgba(0, 0, 0, 0.9),
+    0 0 24px -4px rgba(255, 47, 164, 0.5);
+}
+
+.life-menu-btn svg {
+  width: 26px;
+  height: 26px;
+}
+
+.life.single .life-menu-btn {
+  top: auto;
+  bottom: calc(env(safe-area-inset-bottom) + 24px);
+  translate: -50% 0;
 }
 
 @media (prefers-reduced-motion: reduce) {

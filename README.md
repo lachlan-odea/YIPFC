@@ -116,6 +116,44 @@ row marks the commander. Decks are shared with the pod, so friends can open
 yours read-only and see what they could lend. **Copy as a decklist** gives the
 plain "1 Card Name" form every deck site accepts.
 
+## Life counter
+
+The **Life** tab is a life counter for the game itself, in the style of
+LifeTap. It takes over the whole screen and lays the phone flat in the middle of
+the table: each player gets a panel turned to face their edge, so with four
+players the two on the left and the two on the right each read their own total
+the right way up.
+
+- Tap the right half of your panel to gain a life, the left half to lose one.
+  Hold to change by ten at a time. A bubble next to the total shows the running
+  change for a moment, so "−7" is easy to confirm.
+- Each panel has drawers that open the same way up as the seat. Swipe in from
+  the panel's left edge for **commander damage**, a tile per opponent (it comes
+  off life as well). Swipe up from its bottom edge for **counters**: poison,
+  energy, experience and commander tax, plus the monarch and initiative
+  markers. Tap the name to pick who sits there from the pod's players (or type a
+  guest's name), choose a colour, or turn the seat around for someone sitting
+  on the other side. Damage tiles add on the top half and take
+  away on the bottom; counter tiles take away on the left and add on the right.
+  Hold either to run. The **K.O.** button at the foot of the counters
+  drawer knocks the seat out whatever its life total, for a concession or a
+  loss the counters do not track, and turns into **Back in the game** to undo
+  it. Drawers close with a tap on the rest of the panel or a swipe back the
+  way they came.
+- The dice button in the middle opens the game menu: number of players (one to
+  six), starting life (20, 25, 30, 40 or your own), a spinner to pick who goes
+  first (the winning seat keeps a **1st** marker by their name for the rest of
+  the game, and the seat card can set it by hand), d6, d20 and a coin, and
+  reset. It is also the way back to the pool.
+- When a player is out (no life, ten poison, 21 damage from one commander, or
+  the K.O. button) their panel dims, a skull and crossbones takes the place of
+  the life total, and some famous last words appear beneath it. Life can still
+  be changed, and climbing back above zero brings the total back.
+
+Seats take the pod's names to begin with, the screen stays awake while the
+counter is open, and the game is kept on the phone, so leaving the tab and
+coming back mid-game loses nothing.
+
 ## Accounts and pods
 
 You sign in with an email and password. Your account holds your collection:
