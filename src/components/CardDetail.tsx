@@ -44,8 +44,8 @@ export default function CardDetail({
         {card.image_back ? (
           <button className={`flip ${flipped ? 'flipped' : ''}`} onClick={() => setFlipped((f) => !f)} aria-label={flipped ? 'Show the front face' : 'Show the back face'}>
             <span className="flip-inner">
-              <img className="face front" src={card.image_normal || card.image_small} alt={`${card.name} front face`} />
-              <img className="face back" src={card.image_back} alt={`${card.name} back face`} loading="lazy" />
+              <img className="card-face front" src={card.image_normal || card.image_small} alt={`${card.name} front face`} />
+              <img className="card-face back" src={card.image_back} alt={`${card.name} back face`} loading="lazy" />
             </span>
             <span className="flip-hint">{flipped ? 'Tap to flip back' : 'Tap to flip'}</span>
           </button>
