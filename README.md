@@ -158,7 +158,8 @@ the right way up.
   be changed, and climbing back above zero brings the total back.
 
 - **Turns.** The spinner starts turn one. The pill under the dice shows whose
-  turn it is and the turn number; tap it to pass. Play goes clockwise around
+  turn it is and the turn number, which goes up each time play comes back
+  round to the first player; tap it to pass. Play goes clockwise around
   the table, skipping anyone who is out, and the active seat glows. The menu
   has an undo for a double tap.
 - **Decks.** In the seat panel, pick the deck being played from that player's

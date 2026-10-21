@@ -240,10 +240,21 @@ test('turns start with the chosen seat and pass clockwise, skipping the dead', (
   assert.equal(g.startedAt, new Date(1000).toISOString())
   g = passTurn(g)
   assert.equal(g.active, 0)
-  assert.equal(g.turn, 2)
+  assert.equal(g.turn, 1, 'still the first turn until play comes back round')
   g = toggleKO(g, 1)
   g = passTurn(g)
-  assert.equal(g.active, 3, 'seat 1 is out, so the turn skips to 3')
+  assert.equal(g.active, 3, 'seat 1 is out, so play skips to 3')
+  assert.equal(g.turn, 1)
+  g = passTurn(g)
+  assert.equal(g.active, 2)
+  assert.equal(g.turn, 2, 'back round to the first player: turn two')
+  // The round still ticks over when the first player is out.
+  g = toggleKO(g, 2)
+  g = passTurn(g) // -> 0
+  g = passTurn(g) // -> 3
+  assert.equal(g.turn, 2)
+  g = passTurn(g) // past seat 2's place -> 0
+  assert.equal(g.active, 0)
   assert.equal(g.turn, 3)
   // Spinning again mid-game only hands over the turn.
   const again = startTurns(g, 0)
@@ -260,15 +271,19 @@ test('turns start with the chosen seat and pass clockwise, skipping the dead', (
   assert.equal(passTurn(done), done)
 })
 
-test('undoPass takes back the last pass only', () => {
+test('undoPass takes back the last pass only, and the turn number with it', () => {
   let g = startTurns(newGame(3, 40), 2)
-  g = passTurn(g)
-  g = passTurn(g)
+  g = passTurn(g) // 0, turn 1
+  g = passTurn(g) // 1, turn 1
+  g = passTurn(g) // 2, turn 2
+  assert.equal(g.active, 2)
+  assert.equal(g.turn, 2)
+  g = undoPass(g)
   assert.equal(g.active, 1)
-  assert.equal(g.turn, 3)
+  assert.equal(g.turn, 1)
   g = undoPass(g)
   assert.equal(g.active, 0)
-  assert.equal(g.turn, 2)
+  assert.equal(g.turn, 1)
   g = undoPass(g)
   assert.equal(g.active, 2)
   assert.equal(g.turn, 1)
@@ -283,22 +298,22 @@ test('the log drives per-seat stats: life, commander damage, turns, and the turn
   g = adjustCommander(g, 0, 1, 4)
   g = passTurn(g)
   g = passTurn(g)
-  g = passTurn(g) // back to seat 0, turn 4
-  g = adjustLife(g, 0, -14) // 20 + 3 - 5 - 4 - 14 = 0: out on turn 4
+  g = passTurn(g) // back to seat 0: turn 2
+  g = adjustLife(g, 0, -14) // 20 + 3 - 5 - 4 - 14 = 0: out on turn 2
   const s0 = seatStats(g, 0)
   assert.equal(s0.gained, 3)
   assert.equal(s0.lost, 23, 'commander damage counts as life lost too')
   assert.equal(s0.taken, 4)
   assert.equal(s0.dealt, 0)
   assert.equal(s0.turns, 2)
-  assert.equal(s0.outTurn, 4)
+  assert.equal(s0.outTurn, 2)
   assert.equal(seatStats(g, 1).dealt, 4)
   assert.equal(seatStats(g, 1).turns, 1)
   // Coming back clears the elimination; a K.O. logs one again.
   g = adjustLife(g, 0, 1)
   assert.equal(seatStats(g, 0).outTurn, null)
   g = toggleKO(g, 0)
-  assert.equal(seatStats(g, 0).outTurn, 4)
+  assert.equal(seatStats(g, 0).outTurn, 2)
   assert.equal(g.log.filter((e) => e.kind === 'ko').length, 1)
   assert.equal(alive(g).length, 2)
 })
@@ -334,7 +349,7 @@ test('gameRecord captures the table, and tallies roll it up by deck and player',
   assert.equal(atraxa.games, 2)
   assert.equal(atraxa.wins, 1)
   assert.equal(atraxa.winRate, 0.5)
-  assert.equal(atraxa.avgTurns, 2)
+  assert.equal(atraxa.avgTurns, 1.5)
   assert.equal(atraxa.avgLost, 10)
   assert.equal(atraxa.avgOutTurn, 1)
   assert.equal(playerTally([rec, rec2], 'p-b').wins, 1)

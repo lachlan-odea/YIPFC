@@ -65,7 +65,7 @@ export type GameEvent = {
   turn: number
   seat: number
   kind: 'life' | 'counter' | 'commander' | 'ko' | 'out' | 'back' | 'start' | 'pass'
-  /** Applied change for life, counter and commander; 1 / 0 for ko on / off. */
+  /** Applied change for life, counter and commander; 1 / 0 for ko on / off; 1 for a pass that began a new turn. */
   n?: number
   counter?: Counter
   /** Attacker for commander damage; previous active seat for a pass. */
@@ -81,7 +81,7 @@ export type Game = {
   initiative: number | null
   /** Who went first this game, from the spinner or set by hand. */
   first: number | null
-  /** Turn number, counting every player's turn; 0 until someone starts. */
+  /** Turn number: goes up each time play comes back round to whoever went first. 0 until someone starts. */
   turn: number
   /** Whose turn it is. */
   active: number | null
@@ -276,22 +276,29 @@ export function startTurns(game: Game, seatId: number, now = Date.now()): Game {
   }
 }
 
-/** The next living seat clockwise takes the turn. Before anyone has started, starts with whoever goes first. */
+/**
+ * The next living seat clockwise takes the turn. The turn number only goes up
+ * when play comes back round to the first player's place (whether or not
+ * they are still in). Before anyone has started, starts with whoever goes first.
+ */
 export function passTurn(game: Game, now = Date.now()): Game {
   if (game.active === null) return startTurns(game, game.first ?? turnOrder(game.players)[0], now)
   if (isOver(game)) return game
   const order = turnOrder(game.players)
   const i = order.indexOf(game.active)
+  const firstAt = order.indexOf(game.first ?? order[0])
   let next = game.active
+  let newRound = false
   for (let k = 1; k <= order.length; k++) {
-    const cand = order[(i + k) % order.length]
-    if (!isDead(game.seats[cand])) {
-      next = cand
+    const at = (i + k) % order.length
+    if (at === firstAt) newRound = true
+    if (!isDead(game.seats[order[at]])) {
+      next = order[at]
       break
     }
   }
-  const turn = game.turn + 1
-  return { ...game, active: next, turn, log: [...game.log, { at: now, turn, seat: next, kind: 'pass', from: game.active }] }
+  const turn = game.turn + (newRound ? 1 : 0)
+  return { ...game, active: next, turn, log: [...game.log, { at: now, turn, seat: next, kind: 'pass', from: game.active, n: newRound ? 1 : 0 }] }
 }
 
 /** Take back the last pass, for when someone tapped it twice. */
@@ -300,7 +307,7 @@ export function undoPass(game: Game): Game {
   while (i >= 0 && game.log[i].kind !== 'pass') i--
   if (i < 0) return game
   const ev = game.log[i]
-  return { ...game, active: ev.from ?? game.active, turn: Math.max(1, game.turn - 1), log: game.log.filter((_, k) => k !== i) }
+  return { ...game, active: ev.from ?? game.active, turn: Math.max(1, game.turn - (ev.n ?? 0)), log: game.log.filter((_, k) => k !== i) }
 }
 
 /* ---------- stats ---------- */
