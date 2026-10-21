@@ -696,24 +696,6 @@ function SeatCard({ seat, game, rotate, onGame, onClose }: DrawerProps) {
   return (
     <Drawer side="full" title="This seat" rotate={rotate} onClose={onClose}>
       <div className="seat-grid">
-        <div className="seat-who">
-          <input
-            className="input"
-            value={seat.commanderName ?? ''}
-            maxLength={60}
-            placeholder="Commander (for the record)"
-            aria-label="Commander"
-            onChange={(e) => setCommander(e.target.value)}
-          />
-          {recent.length > 0 && (
-            <div className="chips" aria-label="Commanders played before">
-              {recent.map((c) => (
-                <button key={c} className="chip" onClick={() => setCommander(c)}>
-                  {c}
-                </button>
-              ))}
-            </div>
-          )}
         <div className="name-list" role="radiogroup" aria-label="Who sits here">
           {names.map((n) => (
             <button
@@ -745,7 +727,6 @@ function SeatCard({ seat, game, rotate, onGame, onClose }: DrawerProps) {
             Someone else…
             {guest && <Icons.check />}
           </button>
-        </div>
         </div>
         <div className="seat-side">
           {guest && (
@@ -784,6 +765,23 @@ function SeatCard({ seat, game, rotate, onGame, onClose }: DrawerProps) {
               ⟲ Flip seat
             </button>
           </div>
+          <input
+            className="input"
+            value={seat.commanderName ?? ''}
+            maxLength={60}
+            placeholder="Commander (for the record)"
+            aria-label="Commander"
+            onChange={(e) => setCommander(e.target.value)}
+          />
+          {recent.length > 0 && (
+            <div className="chips" aria-label="Commanders played before">
+              {recent.map((c) => (
+                <button key={c} className="chip" onClick={() => setCommander(c)}>
+                  {c}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </Drawer>

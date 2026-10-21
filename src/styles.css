@@ -2635,35 +2635,15 @@ button.ach {
   touch-action: pan-y;
 }
 
-/* Commander field and the pod's names share the left column; the list takes what is left. */
-.seat-who {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  min-width: 0;
-  min-height: 0;
-}
-
-.seat-who .input {
-  min-height: 36px;
-  padding: 6px 10px;
-  font-size: 13px;
-}
-
-.seat-who .chips {
+.seat-side .chips {
   padding: 0;
   flex: none;
 }
 
-.seat-who .chips .chip {
+.seat-side .chips .chip {
   min-height: 28px;
   padding: 0 10px;
   font-size: 12px;
-}
-
-.seat-who .name-list {
-  flex: 0 1 auto;
-  min-height: 0;
 }
 
 .seat-side .swatches {
