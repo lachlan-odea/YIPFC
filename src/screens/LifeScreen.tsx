@@ -213,6 +213,10 @@ function Pane({
   const inner = innerSides(cell, lay, rotate)
   const sides = inner.length ? inner : (['left', 'right'] as const)
   const fullWidth = cell.colSpan === lay.cols
+  // Counters stack down the outer side edge, away from the table; a seat with
+  // both sides inner (the middle of a six-player table) uses its left.
+  const outer = inner.includes('left') && !inner.includes('right') ? 'right' : 'left'
+  const counters = COUNTERS.filter((c) => seat.counters[c] > 0)
   // Commander damage per attacker, so the badges say who has dealt what.
   const cmdr = opponents(game, seat.id)
     .map((o) => ({ from: o, n: seat.commander[o.id] ?? 0 }))
@@ -284,7 +288,6 @@ function Pane({
           {dead && epitaph && <q className="epitaph">{epitaph}</q>}
           <div className="pane-badges">
             {dead && <span className="pane-badge out">{seat.life} life</span>}
-            {seat.counters.poison > 0 && <span className={`pane-badge ${seat.counters.poison >= LETHAL.poison ? 'lethal' : ''}`}>☠ {seat.counters.poison}</span>}
             {cmdr.map(({ from, n }) => (
               <span
                 key={from.id}
@@ -295,12 +298,23 @@ function Pane({
                 <i className="swatch-dot" style={{ background: SEAT_COLOURS[from.colour] }} aria-hidden="true" />⚔ {n}
               </span>
             ))}
-            {seat.counters.energy > 0 && <span className="pane-badge">⚡ {seat.counters.energy}</span>}
-            {seat.counters.experience > 0 && <span className="pane-badge">✦ {seat.counters.experience}</span>}
-            {seat.counters.tax > 0 && <span className="pane-badge">tax {seat.counters.tax}</span>}
           </div>
           {spot?.final && <span className="goes-first">Goes first</span>}
         </div>
+
+        {counters.length > 0 && (
+          <div className={`counter-stack ${outer} ${inner.length ? '' : 'clear'}`} aria-label="Counters">
+            {counters.map((c) => (
+              <span
+                key={c}
+                className={`pane-badge ${c === 'poison' && seat.counters[c] >= LETHAL.poison ? 'lethal' : ''}`}
+                title={`${seat.counters[c]} ${COUNTER_LABEL[c].toLowerCase()}`}
+              >
+                {COUNTER_ICON[c]} {seat.counters[c]}
+              </span>
+            ))}
+          </div>
+        )}
 
         {drawer === 'damage' && <DamageDrawer seat={seat} game={game} rotate={rotate} onGame={onGame} onClose={() => setDrawer(null)} />}
         {drawer === 'counters' && <CountersDrawer seat={seat} game={game} rotate={rotate} onGame={onGame} onClose={() => setDrawer(null)} />}

@@ -2145,6 +2145,46 @@ button.ach {
   color: #fff;
 }
 
+/*
+ * Poison, energy, experience and tax as a column down the seat's outer side
+ * edge, clear of the number. Taps pass through to the half beneath.
+ */
+.counter-stack {
+  position: absolute;
+  top: 50%;
+  translate: 0 -50%;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  pointer-events: none;
+  font-size: clamp(10px, min(4.5cqw, 6cqh), 14px);
+}
+
+.counter-stack.left {
+  left: 10px;
+}
+
+.counter-stack.right {
+  right: 10px;
+  align-items: flex-end;
+}
+
+/* A full-width seat keeps grab bars on both sides: sit inside them. */
+.counter-stack.clear.left {
+  left: 40px;
+}
+
+.counter-stack.clear.right {
+  right: 40px;
+}
+
+.counter-stack .pane-badge {
+  min-width: 3.2em;
+  text-align: center;
+}
+
 .goes-first {
   position: absolute;
   bottom: 6cqh;
