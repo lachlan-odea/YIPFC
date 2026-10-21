@@ -288,10 +288,9 @@ export function startTurns(game: Game, seatId: number, now = Date.now()): Game {
  * when play comes back round to the first player's place (whether or not
  * they are still in). Before anyone has started, starts with whoever goes first.
  */
-export function passTurn(game: Game, now = Date.now()): Game {
-  if (game.active === null) return startTurns(game, game.first ?? turnOrder(game.players)[0], now)
+export function passTurn(game: Game, now = Date.now(), order: number[] = turnOrder(game.players)): Game {
+  if (game.active === null) return startTurns(game, game.first ?? order[0], now)
   if (isOver(game)) return game
-  const order = turnOrder(game.players)
   const i = order.indexOf(game.active)
   const firstAt = order.indexOf(game.first ?? order[0])
   let next = game.active

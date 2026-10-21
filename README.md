@@ -189,6 +189,21 @@ Seats take the pod's names to begin with, the screen stays awake while the
 counter is open, and the game is kept on the phone, so leaving the tab and
 coming back mid-game loses nothing.
 
+### Pod mode: a phone each
+
+**Where is the counter?** in the game menu switches between one phone for
+the table and a **pod session**, where every player tracks their own seat on
+their own phone. One player starts the session; it appears in the same menu
+on everyone else's phone in the pod, and joining takes a seat in join order.
+Hold the phone sideways: the other players' totals run along the top as
+cards (with the turn marker, monarch, poison and their commander) and your
+own seat fills the rest with every control the one-phone counter has. The
+turn pill and dice sit at the end of the strip. Each phone writes only its
+own seat and the turn, so changes show up on everyone's screen at once.
+Saving a result works as usual and sets the table up for the next game;
+the menu can also end the session for everyone or leave it. Pod sessions
+need the shared pool.
+
 ## Accounts and pods
 
 You sign in with an email and password. Your account holds your collection:

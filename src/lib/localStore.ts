@@ -1,6 +1,6 @@
 import { get, set } from 'idb-keyval'
 import { uid } from './uid'
-import type { AuthUser, Deck, GameRecord, Loan, LoanStatus, NewPoolCard, Player, Pod, PoolCard, PoolStore, Snapshot } from './types'
+import type { AuthUser, Deck, GameRecord, LiveSessions, Loan, LoanStatus, NewPoolCard, Player, Pod, PoolCard, PoolStore, Snapshot } from './types'
 
 const KEY = 'pod-pool/v1'
 // Storage key keeps the app's original name so devices that already joined stay signed in.
@@ -14,6 +14,8 @@ const ME_KEY = 'pod-pool/me'
  */
 export class LocalStore implements PoolStore {
   readonly mode = 'local' as const
+  /** Normally absent: a single device has no pod to share a table with. Dev builds can attach an in-memory one. */
+  live?: LiveSessions
   private snap: Snapshot = { players: [], cards: [], loans: [], decks: [], pods: [], games: [] }
   private listeners = new Set<() => void>()
   private authListeners = new Set<(u: AuthUser | null) => void>()

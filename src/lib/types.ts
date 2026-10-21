@@ -127,6 +127,19 @@ export type GameRecord = {
   players: SeatResult[]
 }
 
+/**
+ * Live pod sessions: one game tracked across several phones. Only the shared
+ * store has them. Shapes live in lib/session.ts; the store moves documents.
+ */
+export interface LiveSessions {
+  watchOpenSessions(podId: string, cb: (sessions: import('./session').LiveSession[]) => void): () => void
+  watchSession(id: string, cb: (session: import('./session').LiveSession | null) => void): () => void
+  createSession(session: Omit<import('./session').LiveSession, 'id'>): Promise<string>
+  joinSession(id: string, uid: string, seat: import('./session').SessionSeat): Promise<void>
+  /** Apply field changes and append events to the log; `replaceLog` writes the log instead (a reset). */
+  updateSession(id: string, fields: Record<string, unknown>, events: import('./session').SessionEvent[], replaceLog?: boolean): Promise<void>
+}
+
 /** What the import/scan flows hand to the store: a card minus its pool bookkeeping. */
 export type NewPoolCard = Omit<PoolCard, 'id' | 'owner_id' | 'created_at'>
 
@@ -181,4 +194,6 @@ export interface PoolStore {
 
   /** Shared mode only: move a pre-accounts player's cards, loans and decks onto the signed-in account. Returns cards moved. */
   claimLegacy?(oldPlayerId: string): Promise<number>
+  /** Shared mode only: live pod sessions for the life counter. */
+  live?: LiveSessions
 }

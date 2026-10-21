@@ -141,6 +141,23 @@ service cloud.firestore {
       allow delete: if signedIn() && resource.data.created_by == me();
     }
 
+    // Live pod sessions for the life counter: one game across several phones.
+    // Anyone signed in can read and update (each phone writes its own seat and
+    // the turn); only the host can remove one.
+    match /sessions/{sessionId} {
+      allow read: if signedIn();
+      allow create: if signedIn()
+        && request.resource.data.host_id == me()
+        && request.resource.data.pod_id is string
+        && request.resource.data.status == 'open'
+        && request.resource.data.order == [me()]
+        && isIso(request.resource.data.created_at);
+      allow update: if signedIn()
+        && request.resource.data.host_id == resource.data.host_id
+        && request.resource.data.pod_id == resource.data.pod_id;
+      allow delete: if signedIn() && resource.data.host_id == me();
+    }
+
     match /decks/{deckId} {
       allow read: if signedIn();
       allow create: if signedIn()

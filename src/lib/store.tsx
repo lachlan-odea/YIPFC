@@ -1,7 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { LocalStore } from './localStore'
 import { FirebaseStore, firebaseConfigFromEnv } from './firebaseStore'
-import type { AuthUser, Deck, GameRecord, Loan, LoanStatus, NewPoolCard, Player, Pod, PoolCard, PoolStore, Snapshot } from './types'
+import { memorySessions } from './memorySessions'
+import type { AuthUser, Deck, GameRecord, LiveSessions, Loan, LoanStatus, NewPoolCard, Player, Pod, PoolCard, PoolStore, Snapshot } from './types'
 
 /** Pre-accounts devices kept a random player id here; it is now only used to offer a one-off migration. */
 export const LEGACY_ME_KEY = 'pod-pool/me'
@@ -11,13 +12,21 @@ export const PENDING_JOIN_KEY = 'yipfc/pending-join'
 function createStore(): PoolStore {
   const config = firebaseConfigFromEnv(import.meta.env)
   if (config) return new FirebaseStore(config)
-  return new LocalStore()
+  const local = new LocalStore()
+  // Dev only: `?fakelive` gives the single-device store in-memory pod sessions, to work on pod mode without Firebase.
+  if (import.meta.env.DEV && location.search.includes('fakelive')) {
+    local.live = memorySessions()
+    ;(window as unknown as { __yipfcLive?: LiveSessions }).__yipfcLive = local.live
+  }
+  return local
 }
 
 export type ActiveLoan = Loan & { card: PoolCard; borrower?: Player; owner?: Player }
 
 type PoolContext = {
   mode: PoolStore['mode']
+  /** Live pod sessions for the life counter; null in single-device mode. */
+  live: LiveSessions | null
   ready: boolean
   error: string | null
   user: AuthUser | null
@@ -146,6 +155,7 @@ export function PoolProvider({ children }: { children: ReactNode }) {
     }
     return {
       mode: store.mode,
+      live: store.live ?? null,
       ready,
       error,
       user,
