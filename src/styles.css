@@ -1862,6 +1862,40 @@ button.ach {
   transition: opacity 0.3s ease, filter 0.3s ease, box-shadow 0.15s ease, border-color 0.15s ease;
 }
 
+/*
+ * Table-wide markers you should spot from across the table: the monarch's
+ * seat is tiled with faint crowns, the initiative holder's with daggers.
+ * The tile sits on the turned face, under the halves, so it reads upright for
+ * that player and taps and the number are unaffected.
+ */
+.pane.monarch .face::before,
+.pane.initiative .face::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-repeat: repeat;
+  background-size: 72px 72px;
+  opacity: 0.13;
+  mask-image: radial-gradient(ellipse at center, transparent 18%, #000 75%);
+  -webkit-mask-image: radial-gradient(ellipse at center, transparent 18%, #000 75%);
+}
+
+.pane.monarch .face::before {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='72' height='72' viewBox='0 0 72 72'%3E%3Cpath d='M14 46h44l4-24-13 10-13-16-13 16-13-10z' fill='none' stroke='%23fbe9c0' stroke-width='3' stroke-linejoin='round'/%3E%3Cpath d='M16 52h40' stroke='%23fbe9c0' stroke-width='3' stroke-linecap='round'/%3E%3Ccircle cx='36' cy='18' r='2.5' fill='%23fbe9c0'/%3E%3Ccircle cx='14' cy='22' r='2.5' fill='%23fbe9c0'/%3E%3Ccircle cx='58' cy='22' r='2.5' fill='%23fbe9c0'/%3E%3C/svg%3E");
+}
+
+.pane.initiative .face::before {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='72' height='72' viewBox='0 0 72 72'%3E%3Cg fill='none' stroke='%23fbe9c0' stroke-width='3' stroke-linecap='round' stroke-linejoin='round' transform='rotate(-45 36 36)'%3E%3Cpath d='M36 10l5 8v24l-5 6-5-6V18z'/%3E%3Cpath d='M24 48h24M36 48v12'/%3E%3C/g%3E%3C/svg%3E");
+}
+
+/* Both at once: one tile on the same grid, crown and dagger alternating. */
+.pane.monarch.initiative .face::before {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='144' height='144' viewBox='0 0 144 144'%3E%3Cg transform='translate(0 0)'%3E%3Cpath d='M14 46h44l4-24-13 10-13-16-13 16-13-10z' fill='none' stroke='%23fbe9c0' stroke-width='3' stroke-linejoin='round'/%3E%3Cpath d='M16 52h40' stroke='%23fbe9c0' stroke-width='3' stroke-linecap='round'/%3E%3Ccircle cx='36' cy='18' r='2.5' fill='%23fbe9c0'/%3E%3Ccircle cx='14' cy='22' r='2.5' fill='%23fbe9c0'/%3E%3Ccircle cx='58' cy='22' r='2.5' fill='%23fbe9c0'/%3E%3C/g%3E%3Cg transform='translate(72 0)'%3E%3Cg fill='none' stroke='%23fbe9c0' stroke-width='3' stroke-linecap='round' stroke-linejoin='round' transform='rotate(-45 36 36)'%3E%3Cpath d='M36 10l5 8v24l-5 6-5-6V18z'/%3E%3Cpath d='M24 48h24M36 48v12'/%3E%3C/g%3E%3C/g%3E%3Cg transform='translate(0 72)'%3E%3Cg fill='none' stroke='%23fbe9c0' stroke-width='3' stroke-linecap='round' stroke-linejoin='round' transform='rotate(-45 36 36)'%3E%3Cpath d='M36 10l5 8v24l-5 6-5-6V18z'/%3E%3Cpath d='M24 48h24M36 48v12'/%3E%3C/g%3E%3C/g%3E%3Cg transform='translate(72 72)'%3E%3Cpath d='M14 46h44l4-24-13 10-13-16-13 16-13-10z' fill='none' stroke='%23fbe9c0' stroke-width='3' stroke-linejoin='round'/%3E%3Cpath d='M16 52h40' stroke='%23fbe9c0' stroke-width='3' stroke-linecap='round'/%3E%3Ccircle cx='36' cy='18' r='2.5' fill='%23fbe9c0'/%3E%3Ccircle cx='14' cy='22' r='2.5' fill='%23fbe9c0'/%3E%3Ccircle cx='58' cy='22' r='2.5' fill='%23fbe9c0'/%3E%3C/g%3E%3C/svg%3E");
+  background-size: 144px 144px;
+}
+
 .pane.dead {
   opacity: 0.55;
   filter: saturate(0.3);
@@ -2094,10 +2128,61 @@ button.ach {
   white-space: nowrap;
 }
 
+.pane-badge.cmdr {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.pane-badge .swatch-dot {
+  width: 0.65em;
+  height: 0.65em;
+}
+
 .pane-badge.lethal,
 .pane-badge.out {
   background: var(--rose);
   color: #fff;
+}
+
+/*
+ * Poison, energy, experience and tax as a column down the seat's outer side
+ * edge, clear of the number. Taps pass through to the half beneath.
+ */
+.counter-stack {
+  position: absolute;
+  top: 50%;
+  translate: 0 -50%;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  pointer-events: none;
+  font-size: clamp(10px, min(4.5cqw, 6cqh), 14px);
+}
+
+.counter-stack.left {
+  left: 10px;
+}
+
+.counter-stack.right {
+  right: 10px;
+  align-items: flex-end;
+}
+
+/* A full-width seat keeps grab bars on both sides: sit inside them. */
+.counter-stack.clear.left {
+  left: 40px;
+}
+
+.counter-stack.clear.right {
+  right: 40px;
+}
+
+.counter-stack .pane-badge {
+  min-width: 3.2em;
+  text-align: center;
 }
 
 .goes-first {
@@ -2113,7 +2198,11 @@ button.ach {
   animation: rise 0.25s ease;
 }
 
-/* Grab bars on the seat's own left and bottom edges: drag inwards to open its panel. */
+/*
+ * Grab bars: one along the seat's top edge (counters) and one on each side
+ * edge that faces another seat (commander damage), so swipes never start on
+ * the phone's own edge where the system's gestures live.
+ */
 .swipe-edge {
   position: absolute;
   z-index: 1;
@@ -2128,45 +2217,77 @@ button.ach {
   background: color-mix(in srgb, var(--ink) 35%, transparent);
 }
 
-.swipe-edge.left {
-  left: 0;
+.swipe-edge.side {
   top: 0;
   bottom: 0;
   width: 30px;
-  justify-content: flex-start;
-  padding-left: 6px;
 }
 
-.swipe-edge.left i {
+.swipe-edge.side i {
   width: 4px;
   height: 36px;
 }
 
-.swipe-edge.bottom {
+.swipe-edge.side.left {
   left: 0;
-  right: 0;
-  bottom: 0;
-  height: 30px;
-  align-items: flex-end;
-  padding-bottom: 6px;
+  justify-content: flex-start;
+  padding-left: 6px;
 }
 
-.swipe-edge.bottom i {
+.swipe-edge.side.right {
+  right: 0;
+  justify-content: flex-end;
+  padding-right: 6px;
+}
+
+/* No inner side: the bar sits in from the phone's edge, clear of the back gesture. */
+.swipe-edge.side.outer {
+  width: 60px;
+}
+
+.swipe-edge.side.outer.left {
+  padding-left: 28px;
+}
+
+.swipe-edge.side.outer.right {
+  padding-right: 28px;
+}
+
+.swipe-edge.top {
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 30px;
+  align-items: flex-start;
+  padding-top: 6px;
+}
+
+.swipe-edge.top i {
   width: 36px;
   height: 4px;
 }
 
-.swipe-edge.left:active {
+/* A full-width seat's top edge runs under the centre button: keep the bar off to one side. */
+.swipe-edge.top.full {
+  justify-content: flex-start;
+  padding-left: 28%;
+}
+
+.swipe-edge.side.left:active {
   background: linear-gradient(90deg, rgba(255, 255, 255, 0.1), transparent);
 }
 
-.swipe-edge.bottom:active {
-  background: linear-gradient(0deg, rgba(0, 0, 0, 0.2), transparent);
+.swipe-edge.side.right:active {
+  background: linear-gradient(270deg, rgba(255, 255, 255, 0.1), transparent);
+}
+
+.swipe-edge.top:active {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.1), transparent);
 }
 
 /*
  * Drawers live inside the face, so they read the same way up as the seat.
- * Damage slides in from the left, counters up from the bottom, and the seat
+ * Damage slides in from the side, counters down from the top, and the seat
  * card sits in the middle; the rest of the seat dims and closes them on tap.
  */
 .drawer-scrim {
@@ -2197,30 +2318,43 @@ button.ach {
   animation: from-left 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
-.drawer-scrim:has(.drawer.bottom) {
-  align-items: flex-end;
+.drawer-scrim:has(.drawer.top) {
+  align-items: flex-start;
 }
 
-.drawer.bottom {
+.drawer.top {
+  position: relative;
   width: 100%;
   max-height: 100%;
-  border-radius: 20px 20px 0 0;
-  border-top: 1px solid var(--line-strong);
-  animation: from-bottom 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
+  padding-bottom: 12px;
+  border-radius: 0 0 20px 20px;
+  border-bottom: 1px solid var(--line-strong);
+  animation: from-top 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
-.drawer-scrim:has(.drawer.centre) {
-  align-items: center;
-  justify-content: center;
-  padding: 8px;
+/* Grip line along the bottom of the top drawer: the edge you drag back up. */
+.drawer.top::after {
+  content: '';
+  position: absolute;
+  bottom: 4px;
+  left: 50%;
+  translate: -50% 0;
+  width: 40px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--line-strong);
 }
 
-.drawer.centre {
-  width: min(100%, 360px);
-  max-height: 100%;
-  border-radius: 14px;
-  border: 1px solid var(--line-strong);
-  animation: rise 0.2s ease;
+/* The seat card fills the face, dropping from the top like the counters. */
+.drawer.full {
+  width: 100%;
+  height: 100%;
+  animation: from-top 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.drawer.full .drawer-body {
+  overflow: hidden;
+  touch-action: none;
 }
 
 /* A roomy seat leaves some of itself showing beside the damage drawer. */
@@ -2237,9 +2371,9 @@ button.ach {
   }
 }
 
-@keyframes from-bottom {
+@keyframes from-top {
   from {
-    translate: 0 100%;
+    translate: 0 -100%;
   }
 }
 
@@ -2264,23 +2398,6 @@ button.ach {
   white-space: nowrap;
 }
 
-/* Grip line on the bottom drawer: it is the thing you drag back down. */
-.drawer.bottom .drawer-head {
-  padding-top: 12px;
-}
-
-.drawer.bottom .drawer-head::before {
-  content: '';
-  position: absolute;
-  top: 4px;
-  left: 50%;
-  translate: -50% 0;
-  width: 40px;
-  height: 4px;
-  border-radius: 2px;
-  background: var(--line-strong);
-}
-
 .drawer-body {
   flex: 1;
   min-height: 0;
@@ -2293,9 +2410,17 @@ button.ach {
   scrollbar-width: thin;
 }
 
-.drawer.bottom .drawer-body,
-.drawer.centre .drawer-body {
+.drawer.top .drawer-body {
   flex: 0 1 auto;
+}
+
+/* Vertical pans scroll a body that can scroll; everything else on a drawer is a swipe. */
+.drawer {
+  touch-action: none;
+}
+
+.drawer-body {
+  touch-action: pan-y;
 }
 
 /* Tiles grow to fill the seat; narrow seats get two across, wide ones three or four. */
@@ -2465,29 +2590,69 @@ button.ach {
 }
 
 .drawer-chips .chip,
-.drawer.centre .chip {
+.seat-side .chip {
   min-height: 32px;
   font-size: 12px;
+}
+
+/* Names on the left, colour and toggles on the right: fits a short side seat. */
+.seat-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+  gap: 10px;
+  height: 100%;
+  min-height: 0;
+}
+
+.seat-side {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  touch-action: pan-y;
+}
+
+.seat-side .swatches {
+  gap: 5px;
+}
+
+.seat-side .swatch {
+  width: 24px;
+  height: 24px;
+}
+
+.seat-side .input {
+  min-height: 36px;
+  padding: 6px 10px;
+  font-size: 13px;
 }
 
 /* The pod's players as a list inside the seat, so it turns with the seat. */
 .name-list {
   display: flex;
   flex-direction: column;
+  align-self: start;
+  max-height: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+  scrollbar-width: thin;
   border: 1px solid var(--line);
   border-radius: 12px;
-  overflow: hidden;
   background: var(--felt-2);
 }
 
 .name-row {
+  flex: none;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  min-height: 38px;
+  min-height: 36px;
   padding: 0 12px;
-  font-size: 14px;
+  font-size: 13px;
   color: var(--ink-2);
   text-align: left;
 }
@@ -2511,20 +2676,6 @@ button.ach {
   height: 16px;
   color: var(--gold-2);
   flex: none;
-}
-
-.drawer.centre .input {
-  min-height: 40px;
-  padding: 8px 12px;
-  font-size: 14px;
-}
-
-.drawer.centre .chip {
-  align-self: flex-start;
-}
-
-.drawer.centre .row.wrap .chip {
-  align-self: auto;
 }
 
 /* Short seats (five or six players on a phone): trim the tiles and drop the note. */

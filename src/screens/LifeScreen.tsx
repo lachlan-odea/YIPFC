@@ -12,8 +12,8 @@ import {
   adjustCommander,
   adjustCounter,
   adjustLife,
-  commanderTotal,
   inProgress,
+  innerSides,
   isDead,
   lastWords,
   layout,
@@ -28,6 +28,7 @@ import {
   type Cell,
   type Counter,
   type Game,
+  type Layout,
   type Seat,
   type SeatColour,
 } from '../lib/life'
@@ -146,6 +147,7 @@ export default function LifeScreen({ onExit }: { onExit: () => void }) {
             seat={seat}
             game={game}
             cell={cell}
+            lay={lay}
             spot={spot?.id === seat.id ? spot : null}
             onGame={setGame}
           />
@@ -165,12 +167,14 @@ function Pane({
   seat,
   game,
   cell,
+  lay,
   spot,
   onGame,
 }: {
   seat: Seat
   game: Game
   cell: Cell
+  lay: Layout
   spot: Spot
   onGame: (fn: (g: Game) => Game) => void
 }) {
@@ -200,9 +204,23 @@ function Pane({
 
   const rotate = ((cell.rotate + (seat.flipped ? 180 : 0)) % 360) as Cell['rotate']
   const hasOpponents = game.players > 1
-  const leftEdge = useSwipeEdge(rotate, 'right', () => setDrawer(hasOpponents ? 'damage' : 'counters'), () => bump(-1))
-  const bottomEdge = useSwipeEdge(rotate, 'up', () => setDrawer('counters'), (left) => bump(left ? -1 : 1))
-  const cmdr = commanderTotal(seat)
+  const openDamage = () => setDrawer(hasOpponents ? 'damage' : 'counters')
+  const topEdge = useSwipeEdge(rotate, 'down', () => setDrawer('counters'), (left) => bump(left ? -1 : 1))
+  const leftIn = useSwipeEdge(rotate, 'right', openDamage, () => bump(-1))
+  const rightIn = useSwipeEdge(rotate, 'left', openDamage, () => bump(1))
+  // Damage opens from the side that faces the table. A full-width seat has none, so it
+  // falls back to both sides with the grab bar held in from the phone's edge.
+  const inner = innerSides(cell, lay, rotate)
+  const sides = inner.length ? inner : (['left', 'right'] as const)
+  const fullWidth = cell.colSpan === lay.cols
+  // Counters stack down the outer side edge, away from the table; a seat with
+  // both sides inner (the middle of a six-player table) uses its left.
+  const outer = inner.includes('left') && !inner.includes('right') ? 'right' : 'left'
+  const counters = COUNTERS.filter((c) => seat.counters[c] > 0)
+  // Commander damage per attacker, so the badges say who has dealt what.
+  const cmdr = opponents(game, seat.id)
+    .map((o) => ({ from: o, n: seat.commander[o.id] ?? 0 }))
+    .filter((d) => d.n > 0)
   const paneStyle = {
     gridRow: `${cell.row} / span ${cell.rowSpan}`,
     gridColumn: `${cell.col} / span ${cell.colSpan}`,
@@ -211,19 +229,26 @@ function Pane({
 
   return (
     <section
-      className={`pane ${dead ? 'dead' : ''} ${spot ? (spot.final ? 'spot final' : 'spot') : ''}`}
+      className={`pane ${dead ? 'dead' : ''} ${game.monarch === seat.id ? 'monarch' : ''} ${game.initiative === seat.id ? 'initiative' : ''} ${spot ? (spot.final ? 'spot final' : 'spot') : ''}`}
       style={paneStyle}
       aria-label={`${seat.name}, ${seat.life} life`}
     >
       <div className={`face r${rotate}`}>
         <button className="half minus" {...hold(-1)} aria-label={`${seat.name} loses life`} />
         <button className="half plus" {...hold(1)} aria-label={`${seat.name} gains life`} />
-        <div className="swipe-edge left" {...leftEdge} title="Swipe in for commander damage">
+        <div className={`swipe-edge top ${fullWidth ? 'full' : ''}`} {...topEdge} title="Swipe down for counters">
           <i aria-hidden="true" />
         </div>
-        <div className="swipe-edge bottom" {...bottomEdge} title="Swipe up for counters">
-          <i aria-hidden="true" />
-        </div>
+        {sides.map((side) => (
+          <div
+            key={side}
+            className={`swipe-edge side ${side} ${inner.length ? '' : 'outer'}`}
+            {...(side === 'left' ? leftIn : rightIn)}
+            title="Swipe in for commander damage"
+          >
+            <i aria-hidden="true" />
+          </div>
+        ))}
 
         <div className="pane-mid">
           <button className="pane-name" onClick={() => setDrawer('seat')} title="Name and colour">
@@ -263,14 +288,33 @@ function Pane({
           {dead && epitaph && <q className="epitaph">{epitaph}</q>}
           <div className="pane-badges">
             {dead && <span className="pane-badge out">{seat.life} life</span>}
-            {seat.counters.poison > 0 && <span className={`pane-badge ${seat.counters.poison >= LETHAL.poison ? 'lethal' : ''}`}>☠ {seat.counters.poison}</span>}
-            {cmdr > 0 && <span className="pane-badge">⚔ {cmdr}</span>}
-            {seat.counters.energy > 0 && <span className="pane-badge">⚡ {seat.counters.energy}</span>}
-            {seat.counters.experience > 0 && <span className="pane-badge">✦ {seat.counters.experience}</span>}
-            {seat.counters.tax > 0 && <span className="pane-badge">tax {seat.counters.tax}</span>}
+            {cmdr.map(({ from, n }) => (
+              <span
+                key={from.id}
+                className={`pane-badge cmdr ${n >= LETHAL.commander ? 'lethal' : ''}`}
+                title={`${n} commander damage from ${from.name}`}
+                aria-label={`${n} commander damage from ${from.name}`}
+              >
+                <i className="swatch-dot" style={{ background: SEAT_COLOURS[from.colour] }} aria-hidden="true" />⚔ {n}
+              </span>
+            ))}
           </div>
           {spot?.final && <span className="goes-first">Goes first</span>}
         </div>
+
+        {counters.length > 0 && (
+          <div className={`counter-stack ${outer} ${inner.length ? '' : 'clear'}`} aria-label="Counters">
+            {counters.map((c) => (
+              <span
+                key={c}
+                className={`pane-badge ${c === 'poison' && seat.counters[c] >= LETHAL.poison ? 'lethal' : ''}`}
+                title={`${seat.counters[c]} ${COUNTER_LABEL[c].toLowerCase()}`}
+              >
+                {COUNTER_ICON[c]} {seat.counters[c]}
+              </span>
+            ))}
+          </div>
+        )}
 
         {drawer === 'damage' && <DamageDrawer seat={seat} game={game} rotate={rotate} onGame={onGame} onClose={() => setDrawer(null)} />}
         {drawer === 'counters' && <CountersDrawer seat={seat} game={game} rotate={rotate} onGame={onGame} onClose={() => setDrawer(null)} />}
@@ -344,17 +388,19 @@ function useHold(apply: (n: number) => void, { holdStep = HOLD_STEP, repeat: eve
  * `dir` fires onSwipe; a plain tap fires onTap with whether it was on the left.
  * The face may be turned, so pointer positions are mapped into its frame.
  */
-function useSwipeEdge(rotate: Cell['rotate'], dir: Swipe, onSwipe: () => void, onTap: (leftHalf: boolean) => void) {
+function useSwipeEdge(rotate: Cell['rotate'], dir: Swipe, onSwipe: () => void, onTap: (leftHalf: boolean) => void, capture = true) {
   const start = useRef<{ x: number; y: number; w: number } | null>(null)
   const swiped = useRef(false)
   const point = (e: ReactPointerEvent<HTMLElement>) => localPoint(e.currentTarget.getBoundingClientRect(), rotate, e.clientX, e.clientY)
   return {
     onPointerDown: (e: ReactPointerEvent<HTMLElement>) => {
       if (e.button !== 0) return
-      try {
-        e.currentTarget.setPointerCapture(e.pointerId)
-      } catch {
-        /* fine */
+      if (capture) {
+        try {
+          e.currentTarget.setPointerCapture(e.pointerId)
+        } catch {
+          /* fine */
+        }
       }
       start.current = point(e)
       swiped.current = false
@@ -408,8 +454,9 @@ type DrawerProps = { seat: Seat; game: Game; rotate: Cell['rotate']; onGame: (fn
 
 /**
  * A panel inside the seat's face, so it reads the same way up as the seat.
- * Slides in from `side`; closes on a tap on the dimmed rest of the seat, the
- * Escape key, or a drag on its header back the way it came.
+ * Slides in from `side`; closes on a swipe down anywhere on it (once its body
+ * is scrolled to the top), a tap on the dimmed rest of the seat, the Escape
+ * key, or a drag on its header back the way it came.
  */
 function Drawer({
   side,
@@ -419,7 +466,7 @@ function Drawer({
   children,
   footer,
 }: {
-  side: 'left' | 'bottom' | 'centre'
+  side: 'left' | 'top' | 'full'
   title: string
   rotate: Cell['rotate']
   onClose: () => void
@@ -427,7 +474,27 @@ function Drawer({
   /** Pinned under the scrolling body, for the one action that must stay reachable. */
   footer?: ReactNode
 }) {
-  const closeDrag = useSwipeEdge(rotate, side === 'left' ? 'left' : 'down', onClose, () => {})
+  const panel = useRef<HTMLElement>(null)
+  const downTarget = useRef<Element | null>(null)
+  const closeDrag = useSwipeEdge(rotate, side === 'left' ? 'left' : 'up', onClose, () => {})
+  const down = useSwipeEdge(
+    rotate,
+    'down',
+    () => {
+      // A drag down inside a list that is scrolled is a scroll, not a dismiss.
+      for (let n = downTarget.current; n && n !== panel.current; n = n.parentElement) if (n.scrollTop > 0) return
+      onClose()
+    },
+    () => {},
+    false,
+  )
+  const swipeDown = {
+    ...down,
+    onPointerDown: (e: ReactPointerEvent<HTMLElement>) => {
+      downTarget.current = e.target as Element
+      down.onPointerDown(e)
+    },
+  }
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
     document.addEventListener('keydown', onKey)
@@ -435,8 +502,8 @@ function Drawer({
   }, [onClose])
   return (
     <div className="drawer-scrim" onClick={onClose}>
-      <section className={`drawer ${side}`} role="dialog" aria-label={title} onClick={(e) => e.stopPropagation()}>
-        <header className="drawer-head" {...(side === 'centre' ? {} : closeDrag)}>
+      <section ref={panel} className={`drawer ${side}`} role="dialog" aria-label={title} onClick={(e) => e.stopPropagation()} {...swipeDown}>
+        <header className="drawer-head" {...closeDrag}>
           <strong>{title}</strong>
         </header>
         <div className="drawer-body">{children}</div>
@@ -471,11 +538,11 @@ function DamageDrawer({ seat, game, rotate, onGame, onClose }: DrawerProps) {
   )
 }
 
-/** Poison and the other counters, plus monarch and initiative, up from the seat's bottom edge. */
+/** Poison and the other counters, plus monarch and initiative, down from the seat's top edge. */
 function CountersDrawer({ seat, game, rotate, onGame, onClose }: DrawerProps) {
   return (
     <Drawer
-      side="bottom"
+      side="top"
       title="Counters"
       rotate={rotate}
       onClose={onClose}
@@ -518,9 +585,9 @@ function CountersDrawer({ seat, game, rotate, onGame, onClose }: DrawerProps) {
 
 /**
  * Who sits here, their colour and which way the seat faces, from a tap on the
- * name. Names come from the pod's players as a list drawn inside the seat (a
- * native drop-down would not turn with it), with the seat's current name kept
- * if it is not one of them and an inline field for guests.
+ * name. Fills the seat: the pod's players scroll in a list on the left (a
+ * native drop-down would not turn with the seat), colour and the toggles sit
+ * on the right. Swipe down to put it away.
  */
 function SeatCard({ seat, game, rotate, onGame, onClose }: DrawerProps) {
   const pool = usePool()
@@ -531,73 +598,77 @@ function SeatCard({ seat, game, rotate, onGame, onClose }: DrawerProps) {
   const names = [...new Set(guest ? podNames : [...podNames, seat.name])].sort((a, b) => a.localeCompare(b))
   const setName = (name: string) => onGame((g) => updateSeat(g, seat.id, { name }))
   return (
-    <Drawer side="centre" title="This seat" rotate={rotate} onClose={onClose}>
-      <div className="name-list" role="radiogroup" aria-label="Who sits here">
-        {names.map((n) => (
+    <Drawer side="full" title="This seat" rotate={rotate} onClose={onClose}>
+      <div className="seat-grid">
+        <div className="name-list" role="radiogroup" aria-label="Who sits here">
+          {names.map((n) => (
+            <button
+              key={n}
+              type="button"
+              role="radio"
+              className="name-row"
+              aria-checked={!guest && seat.name === n}
+              onClick={() => {
+                setGuest(false)
+                setName(n)
+              }}
+            >
+              {n}
+              {!guest && seat.name === n && <Icons.check />}
+            </button>
+          ))}
           <button
-            key={n}
             type="button"
             role="radio"
-            className="name-row"
-            aria-checked={!guest && seat.name === n}
+            className="name-row other"
+            aria-checked={guest}
             onClick={() => {
-              setGuest(false)
-              setName(n)
+              setGuest(true)
+              setFocusGuest(true)
             }}
           >
-            {n}
-            {!guest && seat.name === n && <Icons.check />}
+            Someone else…
+            {guest && <Icons.check />}
           </button>
-        ))}
-        <button
-          type="button"
-          role="radio"
-          className="name-row other"
-          aria-checked={guest}
-          onClick={() => {
-            setGuest(true)
-            setFocusGuest(true)
-          }}
-        >
-          Someone else…
-          {guest && <Icons.check />}
-        </button>
-      </div>
-      {guest && (
-        <input
-          className="input"
-          value={podNames.includes(seat.name) ? '' : seat.name}
-          maxLength={24}
-          placeholder="Guest's name"
-          aria-label="Guest's name"
-          autoFocus={focusGuest}
-          onChange={(e) => setName(e.target.value)}
-          onBlur={(e) => {
-            if (!e.target.value.trim()) setName(`Player ${seat.id + 1}`)
-          }}
-        />
-      )}
-      <div className="swatches" role="radiogroup" aria-label="Seat colour">
-        {(Object.keys(SEAT_COLOURS) as SeatColour[]).map((k) => (
-          <button
-            key={k}
-            type="button"
-            role="radio"
-            className="swatch"
-            style={{ background: SEAT_COLOURS[k] }}
-            aria-checked={seat.colour === k}
-            aria-label={k}
-            onClick={() => onGame((g) => updateSeat(g, seat.id, { colour: k }))}
-          />
-        ))}
-      </div>
-      <div className="row wrap">
-        <button className="chip" aria-pressed={game.first === seat.id} onClick={() => onGame((g) => setFirst(g, seat.id))}>
-          1st Goes first
-        </button>
-        <button className="chip" aria-pressed={seat.flipped} onClick={() => onGame((g) => updateSeat(g, seat.id, { flipped: !seat.flipped }))}>
-          ⟲ Turn this seat around
-        </button>
+        </div>
+        <div className="seat-side">
+          {guest && (
+            <input
+              className="input"
+              value={podNames.includes(seat.name) ? '' : seat.name}
+              maxLength={24}
+              placeholder="Guest's name"
+              aria-label="Guest's name"
+              autoFocus={focusGuest}
+              onChange={(e) => setName(e.target.value)}
+              onBlur={(e) => {
+                if (!e.target.value.trim()) setName(`Player ${seat.id + 1}`)
+              }}
+            />
+          )}
+          <div className="swatches" role="radiogroup" aria-label="Seat colour">
+            {(Object.keys(SEAT_COLOURS) as SeatColour[]).map((k) => (
+              <button
+                key={k}
+                type="button"
+                role="radio"
+                className="swatch"
+                style={{ background: SEAT_COLOURS[k] }}
+                aria-checked={seat.colour === k}
+                aria-label={k}
+                onClick={() => onGame((g) => updateSeat(g, seat.id, { colour: k }))}
+              />
+            ))}
+          </div>
+          <div className="row wrap">
+            <button className="chip" aria-pressed={game.first === seat.id} onClick={() => onGame((g) => setFirst(g, seat.id))}>
+              1st Goes first
+            </button>
+            <button className="chip" aria-pressed={seat.flipped} onClick={() => onGame((g) => updateSeat(g, seat.id, { flipped: !seat.flipped }))}>
+              ⟲ Flip seat
+            </button>
+          </div>
+        </div>
       </div>
     </Drawer>
   )
@@ -737,9 +808,9 @@ function Menu({
         </button>
 
         <p className="small faint">
-          Tap the right half of a seat to gain life and the left half to lose it. Hold for ten at a time. Swipe in from a seat's left
-          edge for commander damage, swipe up from its bottom edge for poison and the other counters, or tap its name to rename or
-          recolour it. The screen stays
+          Tap the right half of a seat to gain life and the left half to lose it. Hold for ten at a time. Swipe in from the edge of a seat
+          that faces the table for commander damage, swipe down from its top edge for poison and the other counters, or tap its
+          name to rename or recolour it. Swipe down on a drawer to put it away. The screen stays
           on while the counter is open.
         </p>
 
