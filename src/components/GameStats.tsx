@@ -8,6 +8,7 @@ import {
   commanderKey,
   commanderTally,
   eloRatings,
+  formatMinutes,
   gameRecord,
   isOver,
   lifetime,
@@ -163,13 +164,14 @@ export function StatsSheet({ onClose }: { onClose: () => void }) {
             <div className="life-tiles">
               <Tile n={life.games} label={life.games === 1 ? 'game' : 'games'} />
               <Tile n={life.turns} label="turns played" />
+              <Tile n={formatMinutes(life.minutes)} label="time played" />
               <Tile n={life.gained} label="life gained" tone="up" />
               <Tile n={life.lost} label="life lost" tone="down" />
               <Tile n={life.commander} label="⚔ damage" />
               <Tile n={life.eliminations} label={life.eliminations === 1 ? 'elimination' : 'eliminations'} />
             </div>
             <p className="small faint">
-              {life.longest !== null && `Longest game: ${life.longest} ${life.longest === 1 ? 'turn' : 'turns'}.`}
+              {life.longest !== null && `Longest game: ${life.longest} ${life.longest === 1 ? 'turn' : 'turns'}${life.longestMinutes !== null ? ` and ${formatMinutes(life.longestMinutes)}` : ''}.`}
               {life.biggestLoss && ` Most life lost in one game: ${life.biggestLoss.name}${life.biggestLoss.commander ? ` (${life.biggestLoss.commander})` : ''}, ${life.biggestLoss.lost}.`}
             </p>
             <div className="segmented" role="tablist" aria-label="Table view" style={{ marginTop: 8 }}>
@@ -319,6 +321,9 @@ function TotalsTable({ rows }: { rows: Row[] }) {
           <th className="num" title="Turns taken">
             Turns
           </th>
+          <th className="num" title="Time at the table, over timed games">
+            Time
+          </th>
         </tr>
       </thead>
       <tbody>
@@ -333,6 +338,7 @@ function TotalsTable({ rows }: { rows: Row[] }) {
             <td className="num">{r.t.totalDealt}</td>
             <td className="num">{r.t.totalTaken}</td>
             <td className="num">{r.t.totalTurns}</td>
+            <td className="num">{r.t.totalMinutes ? formatMinutes(r.t.totalMinutes) : '–'}</td>
           </tr>
         ))}
       </tbody>
@@ -340,10 +346,10 @@ function TotalsTable({ rows }: { rows: Row[] }) {
   )
 }
 
-function Tile({ n, label, tone }: { n: number; label: string; tone?: 'up' | 'down' }) {
+function Tile({ n, label, tone }: { n: number | string; label: string; tone?: 'up' | 'down' }) {
   return (
     <div className={`life-tile ${tone ?? ''}`}>
-      <strong>{n.toLocaleString()}</strong>
+      <strong>{typeof n === 'number' ? n.toLocaleString() : n}</strong>
       <span>{label}</span>
     </div>
   )
@@ -368,6 +374,7 @@ export function StatsSummary() {
         <p className="small muted">
           You: {me.games} {me.games === 1 ? 'game' : 'games'}, {me.wins} won · <span className="up">+{me.totalGained}</span>{' '}
           <span className="down">−{me.totalLost}</span> life all time · {me.totalDealt} commander damage dealt
+          {me.totalMinutes > 0 && ` · ${formatMinutes(me.totalMinutes)} played`}
         </p>
       )}
       {commanders.length > 0 ? (

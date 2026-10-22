@@ -15,6 +15,8 @@ import {
   commanderKey,
   commanderTally,
   eloRatings,
+  formatMinutes,
+  gameMinutes,
   lifetime,
   placements,
   gameRecord,
@@ -464,8 +466,26 @@ test('Elo: a win gains what the loss loses, favourites gain less, and games sum 
   assert.equal(rp.get('p-a').rating, ELO_START + 16)
 })
 
+test('time played: untimed games are skipped, the rest add up and format', () => {
+  assert.equal(gameMinutes({ played_at: '2026-01-01T00:00:00Z', ended_at: '2026-01-01T00:00:00Z' }), null, 'same start and end: not timed')
+  assert.equal(gameMinutes({ played_at: '2026-01-01T00:00:00Z', ended_at: '2026-01-01T01:30:00Z' }), 90)
+  assert.equal(gameMinutes({ played_at: 'junk', ended_at: '2026-01-01T01:30:00Z' }), null)
+  assert.equal(formatMinutes(42), '42m')
+  assert.equal(formatMinutes(60), '1h')
+  assert.equal(formatMinutes(192.4), '3h 12m')
+  const timed = { ...game('t', '2026-01-02T02:00:00Z', [result(0, 'a', { won: true }), result(1, 'b', { out_turn: 3 })]), played_at: '2026-01-02T00:45:00Z' }
+  const untimed = game('u', '2026-01-03T00:00:00Z', [result(0, 'a'), result(1, 'b', { won: true })])
+  const t = lifetime([timed, untimed])
+  assert.equal(t.minutes, 75)
+  assert.equal(t.longestMinutes, 75)
+  const a = tally([timed, untimed], (r) => r.player_id === 'p-a')
+  assert.equal(a.totalMinutes, 75)
+  assert.equal(a.avgMinutes, 75, 'the untimed game does not drag the average down')
+  assert.equal(tally([untimed], () => true).avgMinutes, null)
+})
+
 test('lifetime adds up the whole record', () => {
-  assert.deepEqual(lifetime([]), { games: 0, turns: 0, gained: 0, lost: 0, commander: 0, eliminations: 0, longest: null, biggestLoss: null })
+  assert.deepEqual(lifetime([]), { games: 0, turns: 0, gained: 0, lost: 0, commander: 0, eliminations: 0, longest: null, minutes: 0, longestMinutes: null, biggestLoss: null })
   const a = game('a', '2026-01-01T00:00:00Z', [
     result(0, 'a', { won: true, life_gained: 12, life_lost: 8, commander_dealt: 21 }),
     result(1, 'b', { out_turn: 6, life_lost: 61, commander_taken: 21 }),

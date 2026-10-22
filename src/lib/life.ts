@@ -399,6 +399,28 @@ export type Tally = {
   totalDealt: number
   totalTaken: number
   totalTurns: number
+  /** Minutes at the table, over the games whose length is known. */
+  totalMinutes: number
+  avgMinutes: number | null
+}
+
+/**
+ * How long a game ran, in minutes, or null when it was not timed (a result
+ * saved without the turn tracker has the same start and end).
+ */
+export function gameMinutes(g: Pick<GameRecord, 'played_at' | 'ended_at'>): number | null {
+  const ms = Date.parse(g.ended_at) - Date.parse(g.played_at)
+  if (!Number.isFinite(ms) || ms <= 0) return null
+  return ms / 60000
+}
+
+/** "42m" or "3h 12m". */
+export function formatMinutes(m: number): string {
+  const whole = Math.round(m)
+  if (whole < 60) return `${whole}m`
+  const h = Math.floor(whole / 60)
+  const rest = whole % 60
+  return rest ? `${h}h ${rest}m` : `${h}h`
 }
 
 const sum = (xs: number[]) => xs.reduce((a, b) => a + b, 0)
@@ -410,6 +432,7 @@ export function tally(records: GameRecord[], pick: (r: SeatResult, g: GameRecord
   for (const g of records) for (const r of g.players) if (pick(r, g)) hits.push({ r, g })
   const wins = hits.filter((h) => h.r.won).length
   const outs = hits.map((h) => h.r.out_turn).filter((t): t is number => t !== null)
+  const timed = hits.map((h) => gameMinutes(h.g)).filter((m): m is number => m !== null)
   return {
     games: hits.length,
     wins,
@@ -424,6 +447,8 @@ export function tally(records: GameRecord[], pick: (r: SeatResult, g: GameRecord
     totalDealt: sum(hits.map((h) => h.r.commander_dealt)),
     totalTaken: sum(hits.map((h) => h.r.commander_taken)),
     totalTurns: sum(hits.map((h) => h.r.turns)),
+    totalMinutes: sum(timed),
+    avgMinutes: mean(timed),
   }
 }
 
@@ -438,6 +463,10 @@ export type Lifetime = {
   eliminations: number
   /** Turns the longest game ran, or null with no games. */
   longest: number | null
+  /** Minutes at the table across every timed game. */
+  minutes: number
+  /** The longest timed game, in minutes, or null when none was timed. */
+  longestMinutes: number | null
   /** The biggest single-game life loss by one player, with who it was. */
   biggestLoss: { name: string; commander: string | null; lost: number } | null
 }
@@ -445,6 +474,7 @@ export type Lifetime = {
 /** Everything that has happened across the whole record: the pod's history in numbers. */
 export function lifetime(records: GameRecord[]): Lifetime {
   const seats = records.flatMap((g) => g.players)
+  const timed = records.map(gameMinutes).filter((m): m is number => m !== null)
   let biggest: Lifetime['biggestLoss'] = null
   for (const r of seats) if (r.life_lost > 0 && (!biggest || r.life_lost > biggest.lost)) biggest = { name: r.name, commander: r.commander, lost: r.life_lost }
   return {
@@ -455,6 +485,8 @@ export function lifetime(records: GameRecord[]): Lifetime {
     commander: sum(seats.map((r) => r.commander_dealt)),
     eliminations: seats.filter((r) => r.out_turn !== null).length,
     longest: records.length ? Math.max(...records.map((g) => g.turns)) : null,
+    minutes: sum(timed),
+    longestMinutes: timed.length ? Math.max(...timed) : null,
     biggestLoss: biggest,
   }
 }
