@@ -128,11 +128,16 @@ the right way up.
 - Tap the right half of your panel to gain a life, the left half to lose one.
   Hold to change by ten at a time. A bubble next to the total shows the running
   change for a moment, so "−7" is easy to confirm.
-- Each panel has drawers that open the same way up as the seat. Swipe in from
-  the panel's inside edge, the one facing the other players rather than the
-  edge of the phone, for **commander damage**, a tile per opponent (it comes
-  off life as well); the panel then shows a badge per attacker in their
-  colour, so everyone can see who has dealt what. Swipe down from its top edge for **counters**: poison,
+- Swipe in from a panel's inside edge, the one facing the other players
+  rather than the edge of the phone, to mark **commander damage** taken by
+  that player: every other panel switches from its life total to the damage
+  it has dealt them (starting at 0), and taps on those panels change it, left
+  for less and right for more, coming off the player's life as well. Tap the
+  player's own panel, or swipe back, to finish. The panel then shows a badge
+  per attacker in their colour, so everyone can see who has dealt what. In
+  pod mode the same swipe on your seat switches the cards along the top to
+  what each player has dealt you. Panels also have drawers that open the same
+  way up as the seat. Swipe down from its top edge for **counters**: poison,
   energy, experience and commander tax, plus the monarch and initiative
   markers and a **T1 Sol Ring** flag for the seat that opened with one (a ring
   by their name). Counters you hold show as a column down the outer edge of your
