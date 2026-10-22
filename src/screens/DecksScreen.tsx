@@ -125,30 +125,44 @@ function DeckTile({ deck, onOpen }: { deck: Deck; onOpen: () => void }) {
   const cov = useMemo(() => coverage(deck.cards, pool.cards, pool.loans, pool.me?.id ?? null), [deck.cards, pool.cards, pool.loans, pool.me])
   const size = deckSize(deck)
   const pct = (n: number) => (cov.total ? `${(n / cov.total) * 100}%` : '0%')
+  // The commander (or partners) fronts the tile; a deck without one shows a blank card.
+  const commanders = deck.cards.filter((c) => c.commander)
   return (
     <button className="deck-tile" onClick={onOpen}>
-      <div className="row between" style={{ alignItems: 'baseline' }}>
-        <strong>{deck.name}</strong>
-        <span className="small muted">
-          {size} {size === 1 ? 'card' : 'cards'}
-        </span>
+      <div className={`deck-cmdr ${commanders.length > 1 ? 'pair' : ''}`} aria-hidden="true">
+        {commanders.length ? (
+          commanders.slice(0, 2).map((c) => <img key={c.scryfall_id} src={c.image_small} alt="" loading="lazy" draggable={false} />)
+        ) : (
+          <span className="deck-cmdr-none">No commander</span>
+        )}
       </div>
-      <div className="small muted">{mine ? 'Yours' : `${owner?.name ?? 'Someone'}'s`}</div>
-      {size > 0 && (
-        <>
-          <div className="cover-bar" aria-hidden="true">
-            <i className="yours" style={{ width: pct(cov.yours) }} />
-            <i className="pending" style={{ width: pct(cov.pending) }} />
-            <i className="borrow" style={{ width: pct(cov.borrowable) }} />
-          </div>
-          <div className="small muted cover-legend">
-            {cov.yours > 0 && <span className="yours">{cov.yours} in your pile</span>}
-            {cov.pending > 0 && <span className="pending">{cov.pending} on loan to you</span>}
-            {cov.borrowable > 0 && <span className="borrow">{cov.borrowable} borrowable</span>}
-            {cov.missing > 0 ? <span className="missing">{cov.missing} missing</span> : <span className="yours">All covered</span>}
-          </div>
-        </>
-      )}
+      <div className="deck-tile-body">
+        <div className="row between" style={{ alignItems: 'baseline' }}>
+          <strong>{deck.name}</strong>
+          <span className="small muted">
+            {size} {size === 1 ? 'card' : 'cards'}
+          </span>
+        </div>
+        <div className="small muted">
+          {mine ? 'Yours' : `${owner?.name ?? 'Someone'}'s`}
+          {commanders.length > 0 && ` · ${commanders.map((c) => c.name).join(' & ')}`}
+        </div>
+        {size > 0 && (
+          <>
+            <div className="cover-bar" aria-hidden="true">
+              <i className="yours" style={{ width: pct(cov.yours) }} />
+              <i className="pending" style={{ width: pct(cov.pending) }} />
+              <i className="borrow" style={{ width: pct(cov.borrowable) }} />
+            </div>
+            <div className="small muted cover-legend">
+              {cov.yours > 0 && <span className="yours">{cov.yours} in your pile</span>}
+              {cov.pending > 0 && <span className="pending">{cov.pending} on loan to you</span>}
+              {cov.borrowable > 0 && <span className="borrow">{cov.borrowable} borrowable</span>}
+              {cov.missing > 0 ? <span className="missing">{cov.missing} missing</span> : <span className="yours">All covered</span>}
+            </div>
+          </>
+        )}
+      </div>
     </button>
   )
 }

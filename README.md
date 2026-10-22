@@ -112,7 +112,7 @@ the copies would come from:
 - **Missing:** nobody in the pod has it spare.
 
 The bar at the top shows the split and the chips filter the list. The star on a
-row marks the commander. Decks are shared with the pod, so friends can open
+row marks the commander, whose card fronts the deck's tile. Decks are shared with the pod, so friends can open
 yours read-only and see what they could lend; the pod's decks sit behind a
 **Show** button under your own. **Copy as a decklist** gives the
 plain "1 Card Name" form every deck site accepts.
