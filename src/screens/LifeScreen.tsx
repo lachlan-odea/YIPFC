@@ -86,7 +86,21 @@ export default function LifeScreen({ onExit }: { onExit: () => void }) {
     else localStorage.removeItem(SESSION_KEY)
     setSessionId(id)
   }, [])
-  if (sessionId) return <LifeSession id={sessionId} onLeave={() => enterSession(null)} onExit={onExit} />
+  // Leaving a session hands its game to the one-phone table, which reads it on mount.
+  const leaveSession = useCallback(
+    (carry: Game | null) => {
+      if (carry) {
+        try {
+          localStorage.setItem(KEY, JSON.stringify(carry))
+        } catch {
+          /* the table will fall back to whatever it had */
+        }
+      }
+      enterSession(null)
+    },
+    [enterSession],
+  )
+  if (sessionId) return <LifeSession id={sessionId} onLeave={leaveSession} onExit={onExit} />
   return <OnePhone onExit={onExit} onSession={enterSession} />
 }
 
