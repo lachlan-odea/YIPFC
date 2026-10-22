@@ -81,6 +81,24 @@ export function parseCommanderPage(raw: unknown): CommanderPage | null {
   }
 }
 
+/** EDHREC's average deck for a commander: a full list by Scryfall id, the commander(s) marked. */
+export type AverageDeck = {
+  commanders: string[]
+  cards: Array<{ id: string; quantity: number; commander: boolean }>
+}
+
+export function parseAverageDeck(raw: unknown): AverageDeck | null {
+  const d = raw as { archidekt?: Array<{ u?: string; q?: number; c?: string }>; deck?: { commander_v2?: Array<[string, number]> } }
+  if (!Array.isArray(d?.archidekt) || !d.archidekt.length) return null
+  const cards: AverageDeck['cards'] = []
+  for (const e of d.archidekt) {
+    if (!e.u) continue
+    cards.push({ id: e.u, quantity: Math.max(1, e.q ?? 1), commander: e.c === 'c' })
+  }
+  const commanders = (d.deck?.commander_v2 ?? []).map((x) => x[0]).filter((n): n is string => typeof n === 'string')
+  return cards.length ? { commanders, cards } : null
+}
+
 /** A card you own, as the recommender sees it. */
 export type OwnedCard = { name: string; type_line: string }
 
@@ -192,7 +210,7 @@ export function clearCache() {
   }
 }
 
-async function getPage<T>(kind: 'cards' | 'commanders', slug: string, parse: (raw: unknown) => T | null, fetcher: Fetcher): Promise<T | null> {
+async function getPage<T>(kind: 'cards' | 'commanders' | 'average-decks', slug: string, parse: (raw: unknown) => T | null, fetcher: Fetcher): Promise<T | null> {
   const key = `${kind}/${slug}`
   const hit = cached<T>(key)
   if (hit !== undefined) return hit
@@ -210,6 +228,7 @@ async function getPage<T>(kind: 'cards' | 'commanders', slug: string, parse: (ra
 
 export const cardPage = (name: string, fetcher: Fetcher = fetch) => getPage('cards', edhrecSlug(name), parseCardPage, fetcher)
 export const commanderPage = (slug: string, fetcher: Fetcher = fetch) => getPage('commanders', slug, parseCommanderPage, fetcher)
+export const averageDeck = (slug: string, fetcher: Fetcher = fetch) => getPage('average-decks', slug, parseAverageDeck, fetcher)
 
 /** Run `work` over `items` a few at a time, reporting progress. */
 export async function throttled<T, R>(items: T[], work: (item: T) => Promise<R>, onProgress?: (done: number) => void, concurrency = 4): Promise<R[]> {

@@ -3357,6 +3357,14 @@ button.ach {
   gap: 4px;
 }
 
+.reco .yours {
+  color: var(--lime);
+}
+
+.reco .borrow {
+  color: var(--cyan);
+}
+
 .reco-cards {
   overflow: hidden;
   display: -webkit-box;
