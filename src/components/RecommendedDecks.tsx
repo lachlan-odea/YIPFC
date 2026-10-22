@@ -1,15 +1,41 @@
 import { useMemo, useState } from 'react'
 import { usePool } from '../lib/store'
 import { errorText, useToast } from './ui'
-import { artFor, cardPage, clearCache, commanderPage, edhrecUrl, ownedFor, pickCards, scoreCommanders, throttled, type Suggestion } from '../lib/edhrec'
+import { artFor, averageDeck, cardPage, clearCache, commanderPage, edhrecUrl, ownedFor, pickCards, scoreCommanders, throttled, type Suggestion } from '../lib/edhrec'
 import { fromPoolCard } from '../lib/deck'
-import { namedExact } from '../lib/scryfall'
+import { collection, namedExact, toPoolCard } from '../lib/scryfall'
 import { uid } from '../lib/uid'
 import type { Deck, DeckCard } from '../lib/types'
 
 type Idea = Suggestion & { colours: string[]; decks: number; owned: string[]; borrow: string[]; recommended: number }
 
 const SHOW = 8
+
+/** EDHREC's average deck for a commander as deck cards, via Scryfall for the card data; null if EDHREC has none. */
+async function fullDeck(slug: string): Promise<DeckCard[] | null> {
+  const avg = await averageDeck(slug)
+  if (!avg) return null
+  const found = await collection(avg.cards.map((c) => ({ id: c.id })))
+  const byId = new Map(found.found.map((c) => [c.id, c]))
+  const cards: DeckCard[] = []
+  for (const entry of avg.cards) {
+    const sc = byId.get(entry.id)
+    if (!sc) continue
+    const p = toPoolCard(sc, entry.quantity)
+    cards.push({
+      scryfall_id: p.scryfall_id,
+      name: p.name,
+      quantity: entry.quantity,
+      type_line: p.type_line,
+      mana_cost: p.mana_cost,
+      cmc: p.cmc,
+      color_identity: p.color_identity,
+      image_small: p.image_small,
+      commander: entry.commander,
+    })
+  }
+  return cards.length >= 60 ? cards : null
+}
 
 /**
  * Decks the pod could build, from EDHREC and every card in the pool. Each
@@ -71,11 +97,26 @@ export default function RecommendedDecks({ onOpen }: { onOpen: (deckId: string) 
     if (ideas === null && !busy) void run()
   }
 
-  /** A new deck named for the commander, with the commander, every card of yours EDHREC lists for it, and the pod's lendable ones. */
+  /**
+   * A new deck named for the commander: EDHREC's full average deck for it,
+   * so the deck's coverage shows what is yours, what the pod can lend and
+   * what is still to find. If EDHREC has no average deck, it falls back to
+   * the commander plus every card at hand.
+   */
   async function start(idea: Idea) {
     if (!me) return
     setStarting(idea.slug)
     try {
+      const full = await fullDeck(idea.slug)
+      if (full) {
+        const now = new Date().toISOString()
+        const deck: Deck = { id: uid(), owner_id: me.id, name: idea.name, cards: full, created_at: now, updated_at: now }
+        await pool.saveDeck(deck)
+        const n = full.reduce((t, c) => t + c.quantity, 0)
+        toast(`Started ${idea.name}: EDHREC's ${n}-card list. The deck shows what is yours, borrowable and still to find.`)
+        onOpen(deck.id)
+        return
+      }
       const cards: DeckCard[] = []
       try {
         const c = await namedExact(idea.name)
@@ -173,8 +214,13 @@ export default function RecommendedDecks({ onOpen }: { onOpen: (deckId: string) 
                       </div>
                     )}
                     <div className="row" style={{ gap: 8, marginTop: 4 }}>
-                      <button className="btn sm primary" disabled={starting !== null} onClick={() => void start(idea)}>
-                        {starting === idea.slug ? 'Starting…' : 'Start this deck'}
+                      <button
+                        className="btn sm primary"
+                        disabled={starting !== null}
+                        onClick={() => void start(idea)}
+                        title="Make a deck from EDHREC's average 100-card list, so you can see what is left to find"
+                      >
+                        {starting === idea.slug ? 'Building…' : 'Start this deck'}
                       </button>
                       <a className="btn sm quiet" href={edhrecUrl(idea.slug)} target="_blank" rel="noreferrer">
                         EDHREC

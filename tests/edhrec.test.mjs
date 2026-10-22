@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { STAPLE, edhrecSlug, ownedFor, parseCardPage, parseCommanderPage, pickCards, scoreCommanders, throttled } from '../dist-tests/edhrec.js'
+import { STAPLE, edhrecSlug, ownedFor, parseAverageDeck, parseCardPage, parseCommanderPage, pickCards, scoreCommanders, throttled } from '../dist-tests/edhrec.js'
 
 test('edhrecSlug matches the slugs EDHREC uses', () => {
   assert.equal(edhrecSlug("Atraxa, Praetors' Voice"), 'atraxa-praetors-voice')
@@ -51,6 +51,28 @@ test('parseCommanderPage flattens every list into one set of names', () => {
   assert.equal(p.name, 'Krenko, Mob Boss')
   assert.deepEqual(p.colours, ['R'])
   assert.deepEqual(p.cards, ['Skirk Prospector', 'Goblin Chieftain', 'Siege-Gang Commander'])
+})
+
+test('parseAverageDeck reads the full list by Scryfall id with the commander marked and basics counted', () => {
+  const d = parseAverageDeck({
+    deck: { commander_v2: [['Krenko, Mob Boss', 1]] },
+    archidekt: [
+      { c: 'c', f: 0, q: 1, u: 'krenko-id' },
+      { c: 'm', f: 0, q: 1, u: 'skullclamp-id' },
+      { c: 'm', f: 0, q: 30, u: 'mountain-id' },
+      { c: 'm', q: 0, u: 'odd-id' },
+      { c: 'm', q: 1 },
+    ],
+  })
+  assert.deepEqual(d.commanders, ['Krenko, Mob Boss'])
+  assert.deepEqual(d.cards, [
+    { id: 'krenko-id', quantity: 1, commander: true },
+    { id: 'skullclamp-id', quantity: 1, commander: false },
+    { id: 'mountain-id', quantity: 30, commander: false },
+    { id: 'odd-id', quantity: 1, commander: false },
+  ])
+  assert.equal(parseAverageDeck({}), null)
+  assert.equal(parseAverageDeck({ archidekt: [] }), null)
 })
 
 test('pickCards drops lands and duplicates and keeps deck order', () => {

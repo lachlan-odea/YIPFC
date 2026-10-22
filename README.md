@@ -225,8 +225,9 @@ for, scores those commanders, and for the strongest looks up how much of
 each one's usual list is already between you. Each idea shows the commander,
 how many of its recommended cards are at hand split into yours and ones
 friends can lend, which they are, a link to its EDHREC page, and **Start this
-deck**, which makes a new deck with the commander and all of those cards in
-it, so the deck's coverage bar shows straight away who to ask. Format staples such as Sol Ring are ignored because they point at every
+deck**, which makes a new deck from EDHREC's average 100-card list for that
+commander, so the deck's coverage bar shows straight away what is yours,
+what friends can lend and what is still to find. Format staples such as Sol Ring are ignored because they point at every
 deck. Commanders you already have a deck for are left out. The lookups are one
 small request to EDHREC per card (about 40 KB each) and are kept on the phone
 for a week, so showing the section again is instant; **Refresh** throws that away and
