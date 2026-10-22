@@ -209,8 +209,11 @@ own seat fills the rest with every control the one-phone counter has. The
 turn pill and dice sit at the end of the strip. Each phone writes only its
 own seat and the turn, so changes show up on everyone's screen at once.
 Saving a result works as usual and sets the table up for the next game;
-the menu can also end the session for everyone or leave it. Pod sessions
-need the shared pool.
+the menu can also end the session for everyone. If a phone dies mid-game,
+**Continue on one phone** in the menu hands the game to the one-phone table
+on whichever phone pressed it, with every total, counter, commander damage,
+marker and the turn exactly as they were, and the players seated so the
+clockwise order matches. Pod sessions need the shared pool.
 
 ## Accounts and pods
 

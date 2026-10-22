@@ -1,7 +1,8 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { adjustCommander, adjustLife, passTurn, startTurns, toggleMonarch, updateSeat } from '../dist-tests/life.js'
-import { freshSessionSeat, newSession, parseSession, resetFields, sessionPatch, toGame, toSessionSeat } from '../dist-tests/session.js'
+import { freshSessionSeat, handoffGame, newSession, parseSession, resetFields, sessionPatch, toGame, toSessionSeat } from '../dist-tests/session.js'
+import { turnOrder } from '../dist-tests/life.js'
 
 const host = { id: 'u-host', name: 'Lachlan' }
 
@@ -100,6 +101,47 @@ test('sessionPatch sends only the seats and fields that moved, with events keyed
   t = passTurn(t, 4000, order)
   assert.equal(t.active, 1)
   assert.equal(t.turn, 2, 'back round to the first player')
+})
+
+test('handoffGame seats the session around the one-phone table in play order, keeping everything', () => {
+  const s = table()
+  s.order.push('u-dane')
+  s.seats['u-dane'] = freshSessionSeat('u-dane', 'Dane', 40, ['pink', 'cyan', 'lime'])
+  s.seats['u-sam'].life = 33
+  s.seats['u-sam'].counters.poison = 4
+  s.seats['u-jo'].commander = { 'u-sam': 9 }
+  s.seats['u-jo'].commander_name = 'Krenko'
+  s.monarch = 'u-jo'
+  s.first = 'u-host'
+  s.active = 'u-jo'
+  s.turn = 5
+  s.log = [{ at: 1, turn: 1, seat: 'u-host', kind: 'start' }, { at: 2, turn: 3, seat: 'u-jo', kind: 'commander', from: 'u-sam', n: 9 }]
+  const g = handoffGame(s)
+  const order = turnOrder(4)
+  // Join order host, sam, jo, dane lands on the seats the one-phone table visits clockwise.
+  assert.deepEqual(order.map((id) => g.seats[id].name), ['Lachlan', 'Sam', 'Jo', 'Dane'])
+  const by = (name) => g.seats.find((x) => x.name === name)
+  assert.equal(by('Sam').life, 33)
+  assert.equal(by('Sam').counters.poison, 4)
+  assert.deepEqual(by('Jo').commander, { [by('Sam').id]: 9 })
+  assert.equal(by('Jo').commanderName, 'Krenko')
+  assert.equal(by('Jo').playerId, 'u-jo')
+  assert.equal(g.monarch, by('Jo').id)
+  assert.equal(g.first, by('Lachlan').id)
+  assert.equal(g.active, by('Jo').id)
+  assert.equal(g.turn, 5)
+  assert.equal(g.players, 4)
+  assert.deepEqual(
+    g.log.map((e) => [e.kind, e.seat, e.from]),
+    [
+      ['start', by('Lachlan').id, undefined],
+      ['commander', by('Jo').id, by('Sam').id],
+    ],
+  )
+  // The empty seats are plain and come after the players.
+  assert.equal(g.seats[4].name, 'Player 5')
+  // Without slots the plain mapping is unchanged.
+  assert.deepEqual(toGame(s).seats.slice(0, 4).map((x) => x.name), ['Lachlan', 'Sam', 'Jo', 'Dane'])
 })
 
 test('toSessionSeat keeps the player id and drops zero commander damage', () => {

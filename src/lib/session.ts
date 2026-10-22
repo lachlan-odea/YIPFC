@@ -6,7 +6,7 @@
  * one-phone counter has works unchanged, and converts changes back as a
  * patch of just what moved.
  */
-import { COUNTERS, MAX_PLAYERS, SEAT_COLOURS, newGame, type Counter, type Game, type GameEvent, type Seat, type SeatColour } from './life.js'
+import { COUNTERS, MAX_PLAYERS, SEAT_COLOURS, newGame, turnOrder, type Counter, type Game, type GameEvent, type Seat, type SeatColour } from './life.js'
 
 export type SessionSeat = {
   name: string
@@ -78,17 +78,24 @@ export function newSession(podId: string, host: { id: string; name: string }, st
   }
 }
 
-/** The session as a Game: seat i is the i-th account in join order, the rest of the six are empty. */
-export function toGame(s: LiveSession): Game {
+/**
+ * The session as a Game. By default seat i is the i-th account in join order
+ * (the rest of the six are empty). `slots` puts join position k at seat
+ * slots[k] instead, which handoffGame uses to lay people out clockwise.
+ */
+export function toGame(s: LiveSession, slots?: number[]): Game {
   const order = s.order.filter((uid) => s.seats[uid]).slice(0, MAX_PLAYERS)
-  const idx = (uid: string | null | undefined) => (uid ? order.indexOf(uid) : -1)
+  const idx = (uid: string | null | undefined) => {
+    const k = uid ? order.indexOf(uid) : -1
+    return k < 0 ? -1 : slots ? slots[k] : k
+  }
   const at = (uid: string | null | undefined): number | null => {
     const i = idx(uid)
     return i >= 0 ? i : null
   }
   const base = newGame(Math.max(1, order.length), s.starting_life)
   const seats: Seat[] = base.seats.map((empty, i) => {
-    const uid = order[i]
+    const uid = order[slots ? slots.indexOf(i) : i]
     if (!uid) return empty
     const ss = s.seats[uid]
     const commander: Record<number, number> = {}
@@ -134,6 +141,16 @@ export function toGame(s: LiveSession): Game {
     startedAt: s.startedAt ?? null,
     log,
   }
+}
+
+/**
+ * The session as a game for one phone to carry on with: the same totals,
+ * counters, damage, markers, turn and log, with players placed around the
+ * table so the one-phone clockwise order is the session's join order.
+ */
+export function handoffGame(s: LiveSession): Game {
+  const n = Math.max(1, s.order.filter((uid) => s.seats[uid]).length)
+  return toGame(s, turnOrder(n))
 }
 
 /** A Game seat back into session shape. */

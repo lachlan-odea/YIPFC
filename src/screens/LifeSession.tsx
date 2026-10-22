@@ -4,7 +4,7 @@ import { Icons, Sheet, errorText, useToast } from '../components/ui'
 import { EndGameSheet, StatsSheet } from '../components/GameStats'
 import { DiceButton, type RadialItem } from '../components/DiceButton'
 import { LETHAL, SEAT_COLOURS, activeSeats, adjustCommander, alive, isDead, isOver, opponents, passTurn, startTurns, undoPass, type Game, type Seat } from '../lib/life'
-import { freshSessionSeat, resetFields, sessionPatch, toGame, type LiveSession } from '../lib/session'
+import { freshSessionSeat, handoffGame, resetFields, sessionPatch, toGame, type LiveSession } from '../lib/session'
 import { Pane, buzz, useHold, useOrientationLock, usePortrait, useWakeLock } from './LifeScreen'
 
 /**
@@ -14,7 +14,11 @@ import { Pane, buzz, useHold, useOrientationLock, usePortrait, useWakeLock } fro
  * counter has. The session lives in one shared document; each phone writes
  * only its own seat and the turn.
  */
-export default function LifeSession({ id, onLeave, onExit }: { id: string; onLeave: () => void; onExit: () => void }) {
+/**
+ * `onLeave` gets the game as it stands so the one-phone table can carry on
+ * from exactly here (a phone has died, say), or null if nothing was loaded.
+ */
+export default function LifeSession({ id, onLeave, onExit }: { id: string; onLeave: (carry: Game | null) => void; onExit: () => void }) {
   const pool = usePool()
   const toast = useToast()
   const live = pool.live
@@ -70,12 +74,13 @@ export default function LifeSession({ id, onLeave, onExit }: { id: string; onLea
       .finally(() => (joining.current = false))
   }, [live, session, pool.me, uid, id, toast])
 
+  const leave = useCallback(() => onLeave(session ? handoffGame(session) : null), [onLeave, session])
   useEffect(() => {
     if (gone) {
       toast(gone)
-      onLeave()
+      leave()
     }
-  }, [gone, toast, onLeave])
+  }, [gone, toast, leave])
 
   /** Apply a change locally at once, then send just the difference. */
   const onGame = useCallback(
@@ -107,7 +112,7 @@ export default function LifeSession({ id, onLeave, onExit }: { id: string; onLea
     return <Empty text="Pod mode needs the shared pool." onExit={onExit} />
   }
   if (!session || !game) {
-    return <Empty text="Joining the table…" onExit={onLeave} />
+    return <Empty text="Joining the table…" onExit={leave} />
   }
 
   const myIdx = session.order.indexOf(uid)
@@ -293,9 +298,12 @@ export default function LifeSession({ id, onLeave, onExit }: { id: string; onLea
             <button className="btn danger block" onClick={() => void endSession()}>
               End session for everyone
             </button>
-            <button className="btn quiet block" onClick={onLeave}>
-              Leave session (back to one phone)
+            <button className="btn quiet block" onClick={leave} title="Keeps the game exactly as it is on this phone">
+              Continue on one phone
             </button>
+            <p className="small faint" style={{ marginTop: -8 }}>
+              If a phone dies, continue on one phone: the table, totals, damage and turn carry over as they are.
+            </p>
             <button className="btn quiet block" onClick={onExit}>
               Back to the pool
             </button>
