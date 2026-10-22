@@ -910,10 +910,15 @@ function Menu({
 
   return (
     <Sheet onClose={onClose} label="Game menu">
-      <div className="stack" style={{ gap: 18 }}>
-        <h2 className="title" style={{ fontSize: 22 }}>
-          Life counter
-        </h2>
+      <div className="stack" style={{ gap: 14 }}>
+        <div className="row between">
+          <h2 className="title" style={{ fontSize: 22 }}>
+            Life counter
+          </h2>
+          <button className="btn sm quiet" onClick={onExit}>
+            <Icons.back /> Back to the pool
+          </button>
+        </div>
 
         <PodModePicker startingLife={game.startingLife} onSession={onSession} />
 
@@ -942,18 +947,24 @@ function Menu({
           </div>
         </div>
 
-        <div className="row wrap">
+        <div className="menu-grid">
           <button className="btn" onClick={onPickFirst}>
             Who goes first?
           </button>
+          <button className="btn" onClick={onUndoPass} disabled={passes === 0} title="Take back the last pass">
+            Undo pass
+          </button>
+          <button className="btn" onClick={onEndGame} disabled={game.players < 2}>
+            End game…
+          </button>
           <button className="btn" onClick={() => roll(6)}>
-            Roll d6
+            d6
           </button>
           <button className="btn" onClick={() => roll(20)}>
-            Roll d20
+            d20
           </button>
           <button className="btn" onClick={() => setResult(Math.random() < 0.5 ? 'Heads' : 'Tails')}>
-            Flip a coin
+            Coin
           </button>
         </div>
         {result && (
@@ -962,33 +973,24 @@ function Menu({
           </div>
         )}
 
-        <div className="row wrap">
-          <button className="btn" onClick={onUndoPass} disabled={passes === 0} title="Take back the last pass">
-            Undo last pass
-          </button>
-          <button className="btn" onClick={onEndGame} disabled={game.players < 2}>
-            End game…
-          </button>
-          <button className="btn" onClick={onStats}>
+        <div className="row">
+          <button className="btn" style={{ flex: 1 }} onClick={onStats}>
             Games &amp; stats
+          </button>
+          <button className="btn danger" style={{ flex: 1 }} onClick={onReset}>
+            Reset game
           </button>
         </div>
 
-        <button className="btn danger block" onClick={onReset}>
-          Reset game
-        </button>
-
-        <p className="small faint">
-          Tap the right half of a seat to gain life and the left half to lose it. Hold for ten at a time. Swipe in from the edge of a seat
-          that faces the table for commander damage, swipe down from its top edge for poison and the other counters, or tap its
-          name to rename or recolour it. Swipe down on a drawer to put it away. The pill under the dice
-          passes the turn; turns, life gained and lost, and commander damage are kept for the result. The screen stays on while
-          the counter is open.
-        </p>
-
-        <button className="btn quiet block" onClick={onExit}>
-          Back to the pool
-        </button>
+        <details className="help">
+          <summary>How it works</summary>
+          <p className="small faint">
+            Tap the right half of a seat to gain life and the left half to lose it. Hold for ten at a time. Swipe in from the edge of a
+            seat that faces the table for commander damage, swipe down from its top edge for poison and the other counters, or tap
+            its name to rename or recolour it. Swipe down on a drawer to put it away. The pill under the dice passes the turn; turns,
+            life gained and lost, and commander damage are kept for the result. The screen stays on while the counter is open.
+          </p>
+        </details>
       </div>
     </Sheet>
   )
@@ -1030,12 +1032,12 @@ function PodModePicker({ startingLife, onSession }: { startingLife: number; onSe
         </button>
       </div>
       {!pool.live ? (
-        <p className="small faint" style={{ marginTop: 6 }}>
-          A pod session puts a seat on every player's phone. It needs the shared pool.
+        <p className="small faint" style={{ marginTop: 4 }}>
+          A seat on every phone. Needs the shared pool.
         </p>
       ) : !podId ? (
-        <p className="small faint" style={{ marginTop: 6 }}>
-          Join or create a pod on the You tab to share a table across phones.
+        <p className="small faint" style={{ marginTop: 4 }}>
+          Join a pod on the You tab to share a table across phones.
         </p>
       ) : open.length > 0 ? (
         <div className="stack" style={{ gap: 6, marginTop: 8 }}>
@@ -1047,8 +1049,8 @@ function PodModePicker({ startingLife, onSession }: { startingLife: number; onSe
           <p className="small faint">Or start your own with Pod session.</p>
         </div>
       ) : (
-        <p className="small faint" style={{ marginTop: 6 }}>
-          Pod session starts a table at {startingLife} life that everyone in {pool.pod?.name ?? 'the pod'} can join from this menu on their own phone.
+        <p className="small faint" style={{ marginTop: 4 }}>
+          A seat on every phone; the pod joins from this menu. Starts at {startingLife} life.
         </p>
       )}
     </div>

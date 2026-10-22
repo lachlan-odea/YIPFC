@@ -3092,6 +3092,39 @@ button.ach {
   rotate: 90deg;
 }
 
+/* The game menu: tools in a tight grid, help folded away. */
+.menu-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.menu-grid .btn {
+  padding: 0 8px;
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.help summary {
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--ink-2);
+  list-style: none;
+}
+
+.help summary::before {
+  content: '▸ ';
+  color: var(--ink-3);
+}
+
+.help[open] summary::before {
+  content: '▾ ';
+}
+
+.help p {
+  margin-top: 6px;
+}
+
 /* The menu button sits where the seats meet; with one seat it drops to the bottom. */
 .life-menu-btn {
   position: absolute;
