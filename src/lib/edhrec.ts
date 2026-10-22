@@ -178,6 +178,20 @@ function remember<T>(key: string, v: T | null) {
   }
 }
 
+/** Forget every cached EDHREC page, so the next run fetches fresh. */
+export function clearCache() {
+  try {
+    const gone: string[] = []
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i)
+      if (k?.startsWith(PREFIX)) gone.push(k)
+    }
+    gone.forEach((k) => localStorage.removeItem(k))
+  } catch {
+    /* nothing to clear */
+  }
+}
+
 async function getPage<T>(kind: 'cards' | 'commanders', slug: string, parse: (raw: unknown) => T | null, fetcher: Fetcher): Promise<T | null> {
   const key = `${kind}/${slug}`
   const hit = cached<T>(key)

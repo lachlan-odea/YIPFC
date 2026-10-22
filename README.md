@@ -227,8 +227,9 @@ cards you have and which, a link to its EDHREC page, and **Start this deck**,
 which makes a new deck with the commander and every one of those cards in
 it. Format staples such as Sol Ring are ignored because they point at every
 deck. Commanders you already have a deck for are left out. The lookups are a
-few dozen small requests to EDHREC and are cached on the phone for a week;
-**Refresh** fetches again.
+few dozen small requests to EDHREC and are kept on the phone for a week, so
+showing the section again is instant; **Refresh** throws that away and
+fetches the latest, taking your current cards into account.
 
 ## Accounts and pods
 

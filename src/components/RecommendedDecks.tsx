@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { usePool } from '../lib/store'
 import { errorText, useToast } from './ui'
-import { artFor, cardPage, commanderPage, edhrecUrl, ownedFor, pickCards, scoreCommanders, throttled, type Suggestion } from '../lib/edhrec'
+import { artFor, cardPage, clearCache, commanderPage, edhrecUrl, ownedFor, pickCards, scoreCommanders, throttled, type Suggestion } from '../lib/edhrec'
 import { fromPoolCard } from '../lib/deck'
 import { namedExact } from '../lib/scryfall'
 import { uid } from '../lib/uid'
@@ -173,9 +173,16 @@ export default function RecommendedDecks({ onOpen }: { onOpen: (deckId: string) 
           {!busy && ideas && (
             <div className="row between">
               <p className="small faint" style={{ margin: 0 }}>
-                From {pickCards(owned).length} of your cards. Card data from EDHREC, cached for a week.
+                From {pickCards(owned).length} of your cards. Card data from EDHREC, kept for a week.
               </p>
-              <button className="btn sm quiet" onClick={() => void run()}>
+              <button
+                className="btn sm quiet"
+                title="Fetch the latest from EDHREC and look again at the cards you own now"
+                onClick={() => {
+                  clearCache()
+                  void run()
+                }}
+              >
                 Refresh
               </button>
             </div>
