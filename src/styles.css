@@ -3322,6 +3322,52 @@ button.ach {
   translate: -50% 0;
 }
 
+/* ---------- recommended decks ---------- */
+
+.reco-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 10px;
+}
+
+.reco {
+  display: flex;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: var(--felt-2);
+}
+
+.reco-art {
+  flex: none;
+  width: 84px;
+  height: 62px;
+  object-fit: cover;
+  border-radius: 10px;
+  background: var(--felt-3);
+  box-shadow: 0 6px 14px -8px rgba(0, 0, 0, 0.7);
+}
+
+.reco-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.reco-cards {
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.reco .btn.sm {
+  text-decoration: none;
+}
+
 /* ---------- game results ---------- */
 
 .stat-table {

@@ -6,6 +6,7 @@ import { uid } from '../lib/uid'
 import { errorText, useToast } from '../components/ui'
 import DeckEditor from '../components/DeckEditor'
 import { StatsSheet } from '../components/GameStats'
+import RecommendedDecks from '../components/RecommendedDecks'
 
 export default function DecksScreen() {
   const pool = usePool()
@@ -114,6 +115,8 @@ export default function DecksScreen() {
           )}
         </>
       )}
+
+      <RecommendedDecks onOpen={setOpenId} />
     </div>
   )
 }
