@@ -149,7 +149,9 @@ the right way up.
   it. The seat panel fills the seat, with the pod's players in a scrolling list
   beside the colours. Drawers close with a swipe down, a tap on the rest of
   the panel, or a drag back the way they came.
-- The dice button in the middle opens the game menu: number of players (one to
+- The dice button in the middle opens the game menu (hold it instead and the
+  common actions fan out around it as shortcuts: who goes first, undo pass,
+  end game, d6, d20, coin and reset; slide onto one and let go, or tap): number of players (one to
   six), starting life (20, 25, 30, 40 or your own), a spinner to pick who goes
   first (the winning seat keeps a **1st** marker by their name for the rest of
   the game, and the seat card can set it by hand), d6, d20 and a coin, and

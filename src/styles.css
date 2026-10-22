@@ -3092,6 +3092,70 @@ button.ach {
   rotate: 90deg;
 }
 
+/* Hold the dice: shortcuts fan out around it. */
+.radial-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: rgba(7, 4, 12, 0.45);
+  animation: fade 0.12s ease;
+}
+
+.radial-item {
+  position: fixed;
+  translate: -50% -50%;
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  background: var(--felt-2);
+  border: 1px solid var(--line-strong);
+  color: var(--ink);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  box-shadow: 0 10px 24px -8px rgba(0, 0, 0, 0.9);
+  animation: radial-pop 0.18s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  transition: scale 0.1s ease, background 0.1s ease;
+}
+
+.radial-item .ico {
+  font-size: 17px;
+  line-height: 1;
+}
+
+.radial-item.hot {
+  background: var(--gold);
+  color: var(--gold-ink);
+  border-color: transparent;
+  scale: 1.12;
+}
+
+.radial-item.danger {
+  border-color: color-mix(in srgb, var(--rose) 60%, transparent);
+  color: var(--rose);
+}
+
+.radial-item.danger.hot {
+  background: var(--rose);
+  color: #fff;
+}
+
+.radial-item:disabled {
+  opacity: 0.35;
+}
+
+@keyframes radial-pop {
+  from {
+    scale: 0.4;
+    opacity: 0;
+  }
+}
+
 /* The game menu: tools in a tight grid, help folded away. */
 .menu-grid {
   display: grid;

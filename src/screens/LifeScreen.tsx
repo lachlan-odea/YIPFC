@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, 
 import { usePool } from '../lib/store'
 import { Icons, Sheet, errorText, useToast } from '../components/ui'
 import { EndGameSheet, StatsSheet } from '../components/GameStats'
+import { DiceButton, type RadialItem } from '../components/DiceButton'
 import LifeSession, { sessionPodId, useOpenSessions } from './LifeSession'
 import { newSession } from '../lib/session'
 import {
@@ -193,6 +194,16 @@ function OnePhone({ onExit, onSession }: { onExit: () => void; onSession: (id: s
   const lay = layout(game.players)
   const style = { '--rows': lay.rows, '--cols': lay.cols } as CSSProperties
   const activeSeat = game.active !== null ? game.seats[game.active] : null
+  const roll = (sides: number) => toast(`d${sides}: ${1 + Math.floor(Math.random() * sides)}`)
+  const shortcuts: RadialItem[] = [
+    { label: '1st', icon: '🎲', onPick: pickFirst },
+    { label: 'Undo', icon: '↶', onPick: () => setGame((g) => undoPass(g)), disabled: !game.log.some((e) => e.kind === 'pass') },
+    { label: 'End', icon: '🏁', onPick: () => setEnd(true), disabled: game.players < 2 },
+    { label: 'd6', icon: '⚀', onPick: () => roll(6) },
+    { label: 'd20', icon: '⟡', onPick: () => roll(20) },
+    { label: 'Coin', icon: '🪙', onPick: () => toast(Math.random() < 0.5 ? 'Heads' : 'Tails') },
+    { label: 'Reset', icon: '⟲', onPick: resetGame, danger: true },
+  ]
 
   return (
     <div className={`life ${game.players === 1 ? 'single' : ''}`} style={style} onContextMenu={(e) => e.preventDefault()}>
@@ -210,9 +221,7 @@ function OnePhone({ onExit, onSession }: { onExit: () => void; onSession: (id: s
           />
         )
       })}
-      <button className="life-menu-btn" onClick={() => setMenu(true)} aria-label="Game menu" title="Game menu">
-        <Icons.dice />
-      </button>
+      <DiceButton onTap={() => setMenu(true)} arc={game.players === 1 ? 'top' : 'full'} items={shortcuts} />
       {game.players > 1 &&
         (activeSeat ? (
           <button
@@ -988,7 +997,8 @@ function Menu({
             Tap the right half of a seat to gain life and the left half to lose it. Hold for ten at a time. Swipe in from the edge of a
             seat that faces the table for commander damage, swipe down from its top edge for poison and the other counters, or tap
             its name to rename or recolour it. Swipe down on a drawer to put it away. The pill under the dice passes the turn; turns,
-            life gained and lost, and commander damage are kept for the result. The screen stays on while the counter is open.
+            life gained and lost, and commander damage are kept for the result. Hold the dice for shortcuts. The screen stays on while
+            the counter is open.
           </p>
         </details>
       </div>

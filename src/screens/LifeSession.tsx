@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties }
 import { usePool } from '../lib/store'
 import { Icons, Sheet, errorText, useToast } from '../components/ui'
 import { EndGameSheet, StatsSheet } from '../components/GameStats'
+import { DiceButton, type RadialItem } from '../components/DiceButton'
 import { LETHAL, SEAT_COLOURS, activeSeats, alive, isDead, isOver, opponents, passTurn, startTurns, undoPass, type Game } from '../lib/life'
 import { freshSessionSeat, resetFields, sessionPatch, toGame, type LiveSession } from '../lib/session'
 import { Pane, buzz, useOrientationLock, usePortrait, useWakeLock } from './LifeScreen'
@@ -109,6 +110,15 @@ export default function LifeSession({ id, onLeave, onExit }: { id: string; onLea
 
   const myIdx = session.order.indexOf(uid)
   const mySeat = myIdx >= 0 ? game.seats[myIdx] : null
+  const roll = (sides: number) => toast(`d${sides}: ${1 + Math.floor(Math.random() * sides)}`)
+  const shortcuts: RadialItem[] = [
+    { label: '1st', icon: '🎲', onPick: () => pickFirst() },
+    { label: 'Undo', icon: '↶', onPick: () => onGame((g) => undoPass(g)), disabled: !game.log.some((e) => e.kind === 'pass') },
+    { label: 'End', icon: '🏁', onPick: () => setEnd(true), disabled: game.players < 2 },
+    { label: 'd6', icon: '⚀', onPick: () => roll(6) },
+    { label: 'd20', icon: '⟡', onPick: () => roll(20) },
+    { label: 'Coin', icon: '🪙', onPick: () => toast(Math.random() < 0.5 ? 'Heads' : 'Tails') },
+  ]
   const others = activeSeats(game).filter((s) => s.id !== myIdx)
   const activeSeat = game.active !== null ? game.seats[game.active] : null
   const host = pool.playerById(session.host_id)?.name ?? 'someone'
@@ -190,9 +200,7 @@ export default function LifeSession({ id, onLeave, onExit }: { id: string; onLea
         })}
         {others.length === 0 && <div className="strip-card empty">Waiting for the pod to join…</div>}
         <div className="session-bar">
-          <button className="life-menu-btn" onClick={() => setMenu(true)} aria-label="Game menu" title="Game menu">
-            <Icons.dice />
-          </button>
+          <DiceButton onTap={() => setMenu(true)} items={shortcuts} />
           {activeSeat ? (
             <button className="turn-pill" style={{ '--seat': SEAT_COLOURS[activeSeat.colour] } as CSSProperties} onClick={pass} title="Pass the turn">
               <i className="swatch-dot" aria-hidden="true" />
