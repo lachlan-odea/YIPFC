@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
+import type { ReactNode } from 'react'
 import { Icons } from './ui'
 
 export type RadialItem = {
   label: string
-  icon: string
+  icon: ReactNode
   onPick: () => void
   disabled?: boolean
   danger?: boolean

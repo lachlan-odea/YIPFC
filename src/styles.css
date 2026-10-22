@@ -3222,6 +3222,12 @@ button.ach {
 .radial-item .ico {
   font-size: 17px;
   line-height: 1;
+  display: flex;
+}
+
+.radial-item .ico svg {
+  width: 20px;
+  height: 20px;
 }
 
 .radial-item.hot {

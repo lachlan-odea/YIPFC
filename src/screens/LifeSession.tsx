@@ -117,8 +117,8 @@ export default function LifeSession({ id, onLeave, onExit }: { id: string; onLea
     { label: '1st', icon: '🎲', onPick: () => pickFirst() },
     { label: 'Undo', icon: '↶', onPick: () => onGame((g) => undoPass(g)), disabled: !game.log.some((e) => e.kind === 'pass') },
     { label: 'End', icon: '🏁', onPick: () => setEnd(true), disabled: game.players < 2 },
-    { label: 'd6', icon: '⚀', onPick: () => roll(6) },
-    { label: 'd20', icon: '⟡', onPick: () => roll(20) },
+    { label: 'd6', icon: <Icons.d6 />, onPick: () => roll(6) },
+    { label: 'd20', icon: <Icons.d20 />, onPick: () => roll(20) },
     { label: 'Coin', icon: '🪙', onPick: () => toast(Math.random() < 0.5 ? 'Heads' : 'Tails') },
   ]
   const others = activeSeats(game).filter((s) => s.id !== myIdx)
