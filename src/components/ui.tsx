@@ -23,6 +23,17 @@ export const Icons = {
   next: () => svg(<path d="M9 5l7 7-7 7" />),
   heart: () => svg(<path d="M12 20.5s-7.5-4.6-7.5-10.3A4.2 4.2 0 0 1 12 7.6a4.2 4.2 0 0 1 7.5 2.6c0 5.7-7.5 10.3-7.5 10.3z" />),
   dice: () => svg(<><rect x="4" y="4" width="16" height="16" rx="3.5" /><path d="M8.5 8.5h.01M15.5 8.5h.01M12 12h.01M8.5 15.5h.01M15.5 15.5h.01" /></>),
+  /** A six-sided die showing six, for the roll shortcuts. */
+  d6: () => svg(<><rect x="4" y="4" width="16" height="16" rx="3.5" /><path d="M8.5 8h.01M8.5 12h.01M8.5 16h.01M15.5 8h.01M15.5 12h.01M15.5 16h.01" /></>),
+  /** A twenty-sided die: an icosahedron seen corner-on, with its front faces. */
+  d20: () =>
+    svg(
+      <>
+        <path d="M12 2.5 20.5 7.5v9L12 21.5 3.5 16.5v-9z" />
+        <path d="M12 2.5 6 15.5h12z" />
+        <path d="M3.5 7.5 6 15.5M20.5 7.5 18 15.5M6 15.5 12 21.5 18 15.5" />
+      </>,
+    ),
 }
 
 /* ---------- mana pips ---------- */

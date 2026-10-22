@@ -2,9 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties }
 import { usePool } from '../lib/store'
 import { Icons, Sheet, errorText, useToast } from '../components/ui'
 import { EndGameSheet, StatsSheet } from '../components/GameStats'
-import { LETHAL, SEAT_COLOURS, activeSeats, alive, isDead, isOver, opponents, passTurn, startTurns, undoPass, type Game } from '../lib/life'
+import { DiceButton, type RadialItem } from '../components/DiceButton'
+import { LETHAL, SEAT_COLOURS, activeSeats, adjustCommander, alive, isDead, isOver, opponents, passTurn, startTurns, undoPass, type Game, type Seat } from '../lib/life'
 import { freshSessionSeat, resetFields, sessionPatch, toGame, type LiveSession } from '../lib/session'
-import { Pane, buzz, useOrientationLock, usePortrait, useWakeLock } from './LifeScreen'
+import { Pane, buzz, useHold, useOrientationLock, usePortrait, useWakeLock } from './LifeScreen'
 
 /**
  * Pod mode: this phone is one seat at the table. Held sideways, the other
@@ -26,6 +27,8 @@ export default function LifeSession({ id, onLeave, onExit }: { id: string; onLea
   const [stats, setStats] = useState(false)
   const [gone, setGone] = useState<string | null>(null)
   const joining = useRef(false)
+  // Commander damage mode: the cards along the top switch to what each player has dealt me.
+  const [cmdrMode, setCmdrMode] = useState(false)
 
   useWakeLock()
   useOrientationLock('landscape')
@@ -109,6 +112,15 @@ export default function LifeSession({ id, onLeave, onExit }: { id: string; onLea
 
   const myIdx = session.order.indexOf(uid)
   const mySeat = myIdx >= 0 ? game.seats[myIdx] : null
+  const roll = (sides: number) => toast(`d${sides}: ${1 + Math.floor(Math.random() * sides)}`)
+  const shortcuts: RadialItem[] = [
+    { label: '1st', icon: '🎲', onPick: () => pickFirst() },
+    { label: 'Undo', icon: '↶', onPick: () => onGame((g) => undoPass(g)), disabled: !game.log.some((e) => e.kind === 'pass') },
+    { label: 'End', icon: '🏁', onPick: () => setEnd(true), disabled: game.players < 2 },
+    { label: 'd6', icon: <Icons.d6 />, onPick: () => roll(6) },
+    { label: 'd20', icon: <Icons.d20 />, onPick: () => roll(20) },
+    { label: 'Coin', icon: '🪙', onPick: () => toast(Math.random() < 0.5 ? 'Heads' : 'Tails') },
+  ]
   const others = activeSeats(game).filter((s) => s.id !== myIdx)
   const activeSeat = game.active !== null ? game.seats[game.active] : null
   const host = pool.playerById(session.host_id)?.name ?? 'someone'
@@ -152,6 +164,7 @@ export default function LifeSession({ id, onLeave, onExit }: { id: string; onLea
       <div className="strip" aria-label="Other players">
         {others.map((s) => {
           const dead = isDead(s)
+          if (cmdrMode && mySeat) return <DamageCard key={s.id} seat={s} dealt={mySeat.commander[s.id] ?? 0} onDelta={(d) => onGame((g) => adjustCommander(g, mySeat.id, s.id, d))} />
           // Commander damage this player has taken, per attacker, so the table can see who is close to 21.
           const cmdr = opponents(game, s.id)
             .map((o) => ({ from: o, n: s.commander[o.id] ?? 0 }))
@@ -190,9 +203,7 @@ export default function LifeSession({ id, onLeave, onExit }: { id: string; onLea
         })}
         {others.length === 0 && <div className="strip-card empty">Waiting for the pod to join…</div>}
         <div className="session-bar">
-          <button className="life-menu-btn" onClick={() => setMenu(true)} aria-label="Game menu" title="Game menu">
-            <Icons.dice />
-          </button>
+          <DiceButton onTap={() => setMenu(true)} items={shortcuts} />
           {activeSeat ? (
             <button className="turn-pill" style={{ '--seat': SEAT_COLOURS[activeSeat.colour] } as CSSProperties} onClick={pass} title="Pass the turn">
               <i className="swatch-dot" aria-hidden="true" />
@@ -218,6 +229,8 @@ export default function LifeSession({ id, onLeave, onExit }: { id: string; onLea
             lay={{ rows: 1, cols: 1, cells: [{ seat: mySeat.id, row: 1, col: 1, rowSpan: 1, colSpan: 1, rotate: sideways ? 90 : 0 }] }}
             spot={null}
             onGame={onGame}
+            damage={cmdrMode ? { victim: mySeat.id, onDone: () => setCmdrMode(false) } : null}
+            onDamageMode={() => setCmdrMode(true)}
           />
         ) : (
           <div className="empty">
@@ -291,6 +304,24 @@ export default function LifeSession({ id, onLeave, onExit }: { id: string; onLea
       )}
       {end && <EndGameSheet game={game} onClose={() => setEnd(false)} onSaved={() => void nextGame()} />}
       {stats && <StatsSheet onClose={() => setStats(false)} />}
+    </div>
+  )
+}
+
+/** One opponent's card while marking commander damage: what they have dealt me, left half less, right half more. */
+function DamageCard({ seat, dealt, onDelta }: { seat: Seat; dealt: number; onDelta: (d: number) => void }) {
+  const hold = useHold((n) => {
+    if (dealt + n < 0) return
+    onDelta(n)
+    buzz()
+  }, { holdStep: 1, repeat: 110 })
+  return (
+    <div className={`strip-card dmg ${dealt >= LETHAL.commander ? 'lethal' : ''}`} style={{ '--seat': SEAT_COLOURS[seat.colour] } as CSSProperties}>
+      <button className="strip-half minus" {...hold(-1)} disabled={dealt === 0} aria-label={`Less damage from ${seat.name}`} />
+      <button className="strip-half plus" {...hold(1)} aria-label={`More damage from ${seat.name}`} />
+      <span className="strip-name">{seat.name}</span>
+      <strong className="strip-life">⚔ {dealt}</strong>
+      <span className="strip-sub">dealt to you</span>
     </div>
   )
 }

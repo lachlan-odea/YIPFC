@@ -2913,6 +2913,102 @@ button.ach {
   line-height: 1.4;
 }
 
+/*
+ * Commander damage mode. The victim's seat is ringed in pink and shows life
+ * as usual; every other seat shows the damage it has dealt them, in rose,
+ * and taps on it move that number instead of life.
+ */
+.pane.victim {
+  border-color: var(--gold);
+  box-shadow:
+    inset 0 0 0 2px var(--gold),
+    0 0 28px -4px rgba(255, 47, 164, 0.7);
+}
+
+.pane.attacking {
+  border-color: color-mix(in srgb, var(--rose) 60%, transparent);
+  background: linear-gradient(160deg, color-mix(in srgb, var(--seat) 16%, var(--felt-2)), color-mix(in srgb, var(--rose) 10%, var(--felt-2)) 70%);
+}
+
+.life-n.dmg {
+  color: var(--rose);
+  text-shadow: 0 3px 18px rgba(0, 0, 0, 0.45);
+}
+
+.life-n.dmg.lethal {
+  color: #fff;
+  text-shadow: 0 0 24px var(--rose);
+}
+
+.cmdr-tag.dmg {
+  color: var(--rose);
+  font-weight: 600;
+}
+
+.dmg-banner {
+  pointer-events: none;
+  max-width: 90%;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--gold);
+  color: var(--gold-ink);
+  font-size: clamp(10px, min(4cqw, 5.5cqh), 13px);
+  font-weight: 700;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.half.done {
+  left: 0;
+  right: 0;
+  width: 100%;
+}
+
+/* Pod mode: an opponent's card while marking damage dealt to me. */
+.strip-card {
+  position: relative;
+}
+
+.strip-card.dmg {
+  border-color: color-mix(in srgb, var(--rose) 60%, transparent);
+}
+
+.strip-card.dmg .strip-life {
+  color: var(--rose);
+}
+
+.strip-card.dmg.lethal .strip-life {
+  color: #fff;
+  text-shadow: 0 0 18px var(--rose);
+}
+
+.strip-half {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 50%;
+  touch-action: none;
+  border-radius: 14px;
+}
+
+.strip-half.minus {
+  left: 0;
+}
+
+.strip-half.plus {
+  right: 0;
+}
+
+.strip-half:active {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.strip-half:disabled {
+  opacity: 0;
+}
+
 /* The commander in play, under the name. */
 .cmdr-tag {
   pointer-events: none;
@@ -3090,6 +3186,109 @@ button.ach {
   width: 100cqh;
   height: 100cqw;
   rotate: 90deg;
+}
+
+/* Hold the dice: shortcuts fan out around it. */
+.radial-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: rgba(7, 4, 12, 0.45);
+  animation: fade 0.12s ease;
+}
+
+.radial-item {
+  position: fixed;
+  translate: -50% -50%;
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  background: var(--felt-2);
+  border: 1px solid var(--line-strong);
+  color: var(--ink);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  box-shadow: 0 10px 24px -8px rgba(0, 0, 0, 0.9);
+  animation: radial-pop 0.18s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  transition: scale 0.1s ease, background 0.1s ease;
+}
+
+.radial-item .ico {
+  font-size: 17px;
+  line-height: 1;
+  display: flex;
+}
+
+.radial-item .ico svg {
+  width: 20px;
+  height: 20px;
+}
+
+.radial-item.hot {
+  background: var(--gold);
+  color: var(--gold-ink);
+  border-color: transparent;
+  scale: 1.12;
+}
+
+.radial-item.danger {
+  border-color: color-mix(in srgb, var(--rose) 60%, transparent);
+  color: var(--rose);
+}
+
+.radial-item.danger.hot {
+  background: var(--rose);
+  color: #fff;
+}
+
+.radial-item:disabled {
+  opacity: 0.35;
+}
+
+@keyframes radial-pop {
+  from {
+    scale: 0.4;
+    opacity: 0;
+  }
+}
+
+/* The game menu: tools in a tight grid, help folded away. */
+.menu-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.menu-grid .btn {
+  padding: 0 8px;
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.help summary {
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--ink-2);
+  list-style: none;
+}
+
+.help summary::before {
+  content: '▸ ';
+  color: var(--ink-3);
+}
+
+.help[open] summary::before {
+  content: '▾ ';
+}
+
+.help p {
+  margin-top: 6px;
 }
 
 /* The menu button sits where the seats meet; with one seat it drops to the bottom. */

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, 
 import { usePool } from '../lib/store'
 import { Icons, Sheet, errorText, useToast } from '../components/ui'
 import { EndGameSheet, StatsSheet } from '../components/GameStats'
+import { DiceButton, type RadialItem } from '../components/DiceButton'
 import LifeSession, { sessionPodId, useOpenSessions } from './LifeSession'
 import { newSession } from '../lib/session'
 import {
@@ -104,6 +105,17 @@ function OnePhone({ onExit, onSession }: { onExit: () => void; onSession: (id: s
   const [stats, setStats] = useState(false)
   const [spot, setSpot] = useState<Spot>(null)
   const spotTimers = useRef<number[]>([])
+  // Commander damage mode: the seat taking it; every other seat shows what it has dealt them.
+  const [cmdrFor, setCmdrFor] = useState<number | null>(null)
+  useEffect(() => {
+    if (cmdrFor !== null && cmdrFor >= game.players) setCmdrFor(null)
+  }, [cmdrFor, game.players])
+  useEffect(() => {
+    if (cmdrFor === null) return
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setCmdrFor(null)
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [cmdrFor])
 
   // One player left: offer to save the result, once per game.
   const over = isOver(game)
@@ -193,6 +205,16 @@ function OnePhone({ onExit, onSession }: { onExit: () => void; onSession: (id: s
   const lay = layout(game.players)
   const style = { '--rows': lay.rows, '--cols': lay.cols } as CSSProperties
   const activeSeat = game.active !== null ? game.seats[game.active] : null
+  const roll = (sides: number) => toast(`d${sides}: ${1 + Math.floor(Math.random() * sides)}`)
+  const shortcuts: RadialItem[] = [
+    { label: '1st', icon: '🎲', onPick: pickFirst },
+    { label: 'Undo', icon: '↶', onPick: () => setGame((g) => undoPass(g)), disabled: !game.log.some((e) => e.kind === 'pass') },
+    { label: 'End', icon: '🏁', onPick: () => setEnd(true), disabled: game.players < 2 },
+    { label: 'd6', icon: <Icons.d6 />, onPick: () => roll(6) },
+    { label: 'd20', icon: <Icons.d20 />, onPick: () => roll(20) },
+    { label: 'Coin', icon: '🪙', onPick: () => toast(Math.random() < 0.5 ? 'Heads' : 'Tails') },
+    { label: 'Reset', icon: '⟲', onPick: resetGame, danger: true },
+  ]
 
   return (
     <div className={`life ${game.players === 1 ? 'single' : ''}`} style={style} onContextMenu={(e) => e.preventDefault()}>
@@ -207,12 +229,12 @@ function OnePhone({ onExit, onSession }: { onExit: () => void; onSession: (id: s
             lay={lay}
             spot={spot?.id === seat.id ? spot : null}
             onGame={setGame}
+            damage={cmdrFor !== null ? { victim: cmdrFor, onDone: () => setCmdrFor(null) } : null}
+            onDamageMode={() => setCmdrFor(seat.id)}
           />
         )
       })}
-      <button className="life-menu-btn" onClick={() => setMenu(true)} aria-label="Game menu" title="Game menu">
-        <Icons.dice />
-      </button>
+      <DiceButton onTap={() => setMenu(true)} arc={game.players === 1 ? 'top' : 'full'} items={shortcuts} />
       {game.players > 1 &&
         (activeSeat ? (
           <button
@@ -267,6 +289,8 @@ export function Pane({
   lay,
   spot,
   onGame,
+  damage = null,
+  onDamageMode,
 }: {
   seat: Seat
   game: Game
@@ -274,7 +298,16 @@ export function Pane({
   lay: Layout
   spot: Spot
   onGame: (fn: (g: Game) => Game) => void
+  /** Commander damage mode: who is taking it. This seat is either the victim or one of the attackers. */
+  damage?: { victim: number; onDone: () => void } | null
+  /** Enter commander damage mode with this seat as the victim. */
+  onDamageMode?: () => void
 }) {
+  // In damage mode an attacker's seat shows and edits what it has dealt the victim; the victim's seat shows life as usual.
+  const attacking = damage && damage.victim !== seat.id ? damage.victim : null
+  const isVictim = !!damage && damage.victim === seat.id
+  const dealt = attacking !== null ? (game.seats[attacking].commander[seat.id] ?? 0) : 0
+  const victimName = attacking !== null ? game.seats[attacking].name : ''
   const [delta, setDelta] = useState<number | null>(null)
   const deltaTimer = useRef(0)
   const [drawer, setDrawer] = useState<DrawerKind | null>(null)
@@ -289,22 +322,36 @@ export function Pane({
 
   const bump = useCallback(
     (n: number) => {
-      onGame((g) => adjustLife(g, seat.id, n))
-      setDelta((d) => (d ?? 0) + n)
+      let applied = n
+      if (attacking !== null) {
+        applied = Math.max(0, dealt + n) - dealt
+        if (applied === 0) return
+        onGame((g) => adjustCommander(g, attacking, seat.id, applied))
+      } else onGame((g) => adjustLife(g, seat.id, n))
+      setDelta((d) => (d ?? 0) + applied)
       clearTimeout(deltaTimer.current)
       deltaTimer.current = window.setTimeout(() => setDelta(null), DELTA_LINGER)
       buzz()
     },
-    [onGame, seat.id],
+    [onGame, seat.id, attacking, dealt],
   )
-  const hold = useHold(bump)
+  const hold = useHold(bump, attacking !== null ? { holdStep: 1, repeat: 110 } : {})
 
   const rotate = ((cell.rotate + (seat.flipped ? 180 : 0)) % 360) as Cell['rotate']
   const hasOpponents = game.players > 1
-  const openDamage = () => setDrawer(hasOpponents ? 'damage' : 'counters')
+  const openDamage = () => (hasOpponents && onDamageMode ? onDamageMode() : setDrawer('counters'))
+  const done = damage?.onDone ?? (() => {})
   const topEdge = useSwipeEdge(rotate, 'down', () => setDrawer('counters'), (left) => bump(left ? -1 : 1))
   const leftIn = useSwipeEdge(rotate, 'right', openDamage, () => bump(-1))
   const rightIn = useSwipeEdge(rotate, 'left', openDamage, () => bump(1))
+  // The victim's edges swipe back out of damage mode; a tap on them does too.
+  const leftOut = useSwipeEdge(rotate, 'left', done, done)
+  const rightOut = useSwipeEdge(rotate, 'right', done, done)
+  useEffect(() => {
+    // Entering or leaving damage mode: close any drawer and drop a lingering life delta.
+    if (damage) setDrawer(null)
+    setDelta(null)
+  }, [!!damage]) // eslint-disable-line react-hooks/exhaustive-deps
   // Damage opens from the side that faces the table. A full-width seat has none, so it
   // falls back to both sides with the grab bar held in from the phone's edge.
   const inner = innerSides(cell, lay, rotate)
@@ -326,29 +373,44 @@ export function Pane({
 
   return (
     <section
-      className={`pane ${dead ? 'dead' : ''} ${game.active === seat.id ? 'active' : ''} ${game.monarch === seat.id ? 'monarch' : ''} ${game.initiative === seat.id ? 'initiative' : ''} ${spot ? (spot.final ? 'spot final' : 'spot') : ''}`}
+      className={`pane ${dead && attacking === null ? 'dead' : ''} ${attacking !== null ? 'attacking' : ''} ${isVictim ? 'victim' : ''} ${game.active === seat.id ? 'active' : ''} ${game.monarch === seat.id ? 'monarch' : ''} ${game.initiative === seat.id ? 'initiative' : ''} ${spot ? (spot.final ? 'spot final' : 'spot') : ''}`}
       style={paneStyle}
-      aria-label={`${seat.name}, ${seat.life} life`}
+      aria-label={attacking !== null ? `${seat.name} has dealt ${dealt} commander damage to ${victimName}` : `${seat.name}, ${seat.life} life`}
     >
       <div className={`face r${rotate}`}>
-        <button className="half minus" {...hold(-1)} aria-label={`${seat.name} loses life`} />
-        <button className="half plus" {...hold(1)} aria-label={`${seat.name} gains life`} />
-        <div className={`swipe-edge top ${fullWidth ? 'full' : ''}`} {...topEdge} title="Swipe down for counters">
-          <i aria-hidden="true" />
-        </div>
-        {sides.map((side) => (
-          <div
-            key={side}
-            className={`swipe-edge side ${side} ${inner.length ? '' : 'outer'}`}
-            {...(side === 'left' ? leftIn : rightIn)}
-            title="Swipe in for commander damage"
-          >
+        {isVictim ? (
+          <button className="half done" onClick={done} aria-label="Finish marking commander damage" />
+        ) : (
+          <>
+            <button className="half minus" {...hold(-1)} aria-label={attacking !== null ? `Less damage from ${seat.name}` : `${seat.name} loses life`} />
+            <button className="half plus" {...hold(1)} aria-label={attacking !== null ? `More damage from ${seat.name}` : `${seat.name} gains life`} />
+          </>
+        )}
+        {!damage && (
+          <div className={`swipe-edge top ${fullWidth ? 'full' : ''}`} {...topEdge} title="Swipe down for counters">
             <i aria-hidden="true" />
           </div>
-        ))}
+        )}
+        {!damage &&
+          sides.map((side) => (
+            <div
+              key={side}
+              className={`swipe-edge side ${side} ${inner.length ? '' : 'outer'}`}
+              {...(side === 'left' ? leftIn : rightIn)}
+              title="Swipe in for commander damage"
+            >
+              <i aria-hidden="true" />
+            </div>
+          ))}
+        {isVictim &&
+          sides.map((side) => (
+            <div key={side} className={`swipe-edge side ${side} ${inner.length ? '' : 'outer'}`} {...(side === 'left' ? leftOut : rightOut)} title="Swipe back when done">
+              <i aria-hidden="true" />
+            </div>
+          ))}
 
         <div className="pane-mid">
-          <button className="pane-name" onClick={() => setDrawer('seat')} title="Name and colour">
+          <button className="pane-name" onClick={() => !damage && setDrawer('seat')} title={damage ? undefined : 'Name and colour'}>
             {game.monarch === seat.id && (
               <span title="Monarch" aria-label="Monarch">
                 👑
@@ -376,14 +438,25 @@ export function Pane({
             )}
             {seat.name}
           </button>
-          {seat.commanderName && <span className="cmdr-tag">{seat.commanderName}</span>}
+          {attacking !== null ? (
+            <span className="cmdr-tag dmg">⚔ dealt to {victimName}</span>
+          ) : (
+            seat.commanderName && <span className="cmdr-tag">{seat.commanderName}</span>
+          )}
+          {isVictim && <span className="dmg-banner">Commander damage taken · tap here when done</span>}
           <div className="life-wrap">
             <span className="sign" aria-hidden="true">
               −
             </span>
-            <output className={`life-n ${dead ? 'skull' : ''}`} aria-live="off" aria-label={dead ? `${seat.name} is out, ${seat.life} life` : undefined}>
-              {dead ? <Skull /> : seat.life}
-            </output>
+            {attacking !== null ? (
+              <output className={`life-n dmg ${dealt >= LETHAL.commander ? 'lethal' : ''}`} aria-live="off">
+                {dealt}
+              </output>
+            ) : (
+              <output className={`life-n ${dead ? 'skull' : ''}`} aria-live="off" aria-label={dead ? `${seat.name} is out, ${seat.life} life` : undefined}>
+                {dead ? <Skull /> : seat.life}
+              </output>
+            )}
             <span className="sign" aria-hidden="true">
               +
             </span>
@@ -393,7 +466,7 @@ export function Pane({
               </span>
             )}
           </div>
-          {dead && epitaph && <q className="epitaph">{epitaph}</q>}
+          {dead && epitaph && attacking === null && <q className="epitaph">{epitaph}</q>}
           <div className="pane-badges">
             {dead && <span className="pane-badge out">{seat.life} life</span>}
             {cmdr.map(({ from, n }) => (
@@ -410,7 +483,7 @@ export function Pane({
           {spot?.final && <span className="goes-first">Goes first</span>}
         </div>
 
-        {counters.length > 0 && (
+        {counters.length > 0 && attacking === null && (
           <div className={`counter-stack ${outer} ${inner.length ? '' : 'clear'}`} aria-label="Counters">
             {counters.map((c) => (
               <span
@@ -424,7 +497,6 @@ export function Pane({
           </div>
         )}
 
-        {drawer === 'damage' && <DamageDrawer seat={seat} game={game} rotate={rotate} onGame={onGame} onClose={() => setDrawer(null)} />}
         {drawer === 'counters' && <CountersDrawer seat={seat} game={game} rotate={rotate} onGame={onGame} onClose={() => setDrawer(null)} />}
         {drawer === 'seat' && <SeatCard seat={seat} game={game} rotate={rotate} onGame={onGame} onClose={() => setDrawer(null)} />}
       </div>
@@ -457,7 +529,7 @@ function Skull() {
  * unmounts under the finger, and the pointer-up that follows lands on whichever
  * half is underneath; without a matching pointer-down that is not a tap.
  */
-function useHold(apply: (n: number) => void, { holdStep = HOLD_STEP, repeat: every = HOLD_REPEAT } = {}) {
+export function useHold(apply: (n: number) => void, { holdStep = HOLD_STEP, repeat: every = HOLD_REPEAT } = {}) {
   const delay = useRef(0)
   const repeat = useRef(0)
   const held = useRef(false)
@@ -565,7 +637,7 @@ function localPoint(r: DOMRect, rotate: Cell['rotate'], cx: number, cy: number) 
 
 /* ---------- per-seat drawers: commander damage, counters, seat ---------- */
 
-type DrawerKind = 'damage' | 'counters' | 'seat'
+type DrawerKind = 'counters' | 'seat'
 type Swipe = 'right' | 'up' | 'left' | 'down'
 
 type DrawerProps = { seat: Seat; game: Game; rotate: Cell['rotate']; onGame: (fn: (g: Game) => Game) => void; onClose: () => void }
@@ -628,31 +700,6 @@ function Drawer({
         {footer && <div className="drawer-foot">{footer}</div>}
       </section>
     </div>
-  )
-}
-
-/** Commander damage taken from each opponent, in from the seat's left edge. */
-function DamageDrawer({ seat, game, rotate, onGame, onClose }: DrawerProps) {
-  const others = opponents(game, seat.id)
-  return (
-    <Drawer side="left" title="Commander damage" rotate={rotate} onClose={onClose}>
-      <div className="ctiles">
-        {others.map((o) => {
-          const n = seat.commander[o.id] ?? 0
-          return (
-            <Tile
-              key={o.id}
-              label={o.name}
-              swatch={SEAT_COLOURS[o.colour]}
-              value={n}
-              lethal={n >= LETHAL.commander}
-              onDelta={(d) => onGame((g) => adjustCommander(g, seat.id, o.id, d))}
-            />
-          )
-        })}
-      </div>
-      <p className="drawer-note">Damage taken from each commander. It comes off life too, and {LETHAL.commander} from one is lethal.</p>
-    </Drawer>
   )
 }
 
@@ -910,10 +957,15 @@ function Menu({
 
   return (
     <Sheet onClose={onClose} label="Game menu">
-      <div className="stack" style={{ gap: 18 }}>
-        <h2 className="title" style={{ fontSize: 22 }}>
-          Life counter
-        </h2>
+      <div className="stack" style={{ gap: 14 }}>
+        <div className="row between">
+          <h2 className="title" style={{ fontSize: 22 }}>
+            Life counter
+          </h2>
+          <button className="btn sm quiet" onClick={onExit}>
+            <Icons.back /> Back to the pool
+          </button>
+        </div>
 
         <PodModePicker startingLife={game.startingLife} onSession={onSession} />
 
@@ -942,18 +994,24 @@ function Menu({
           </div>
         </div>
 
-        <div className="row wrap">
+        <div className="menu-grid">
           <button className="btn" onClick={onPickFirst}>
             Who goes first?
           </button>
+          <button className="btn" onClick={onUndoPass} disabled={passes === 0} title="Take back the last pass">
+            Undo pass
+          </button>
+          <button className="btn" onClick={onEndGame} disabled={game.players < 2}>
+            End game…
+          </button>
           <button className="btn" onClick={() => roll(6)}>
-            Roll d6
+            d6
           </button>
           <button className="btn" onClick={() => roll(20)}>
-            Roll d20
+            d20
           </button>
           <button className="btn" onClick={() => setResult(Math.random() < 0.5 ? 'Heads' : 'Tails')}>
-            Flip a coin
+            Coin
           </button>
         </div>
         {result && (
@@ -962,33 +1020,26 @@ function Menu({
           </div>
         )}
 
-        <div className="row wrap">
-          <button className="btn" onClick={onUndoPass} disabled={passes === 0} title="Take back the last pass">
-            Undo last pass
-          </button>
-          <button className="btn" onClick={onEndGame} disabled={game.players < 2}>
-            End game…
-          </button>
-          <button className="btn" onClick={onStats}>
+        <div className="row">
+          <button className="btn" style={{ flex: 1 }} onClick={onStats}>
             Games &amp; stats
+          </button>
+          <button className="btn danger" style={{ flex: 1 }} onClick={onReset}>
+            Reset game
           </button>
         </div>
 
-        <button className="btn danger block" onClick={onReset}>
-          Reset game
-        </button>
-
-        <p className="small faint">
-          Tap the right half of a seat to gain life and the left half to lose it. Hold for ten at a time. Swipe in from the edge of a seat
-          that faces the table for commander damage, swipe down from its top edge for poison and the other counters, or tap its
-          name to rename or recolour it. Swipe down on a drawer to put it away. The pill under the dice
-          passes the turn; turns, life gained and lost, and commander damage are kept for the result. The screen stays on while
-          the counter is open.
-        </p>
-
-        <button className="btn quiet block" onClick={onExit}>
-          Back to the pool
-        </button>
+        <details className="help">
+          <summary>How it works</summary>
+          <p className="small faint">
+            Tap the right half of a seat to gain life and the left half to lose it. Hold for ten at a time. Swipe in from the edge of a
+            seat that faces the table to mark commander damage: every other seat switches to the damage it has dealt that player,
+            tap those to change it, then tap the player's seat to finish. Swipe down from its top edge for poison and the other counters, or tap
+            its name to rename or recolour it. Swipe down on a drawer to put it away. The pill under the dice passes the turn; turns,
+            life gained and lost, and commander damage are kept for the result. Hold the dice for shortcuts. The screen stays on while
+            the counter is open.
+          </p>
+        </details>
       </div>
     </Sheet>
   )
@@ -1030,12 +1081,12 @@ function PodModePicker({ startingLife, onSession }: { startingLife: number; onSe
         </button>
       </div>
       {!pool.live ? (
-        <p className="small faint" style={{ marginTop: 6 }}>
-          A pod session puts a seat on every player's phone. It needs the shared pool.
+        <p className="small faint" style={{ marginTop: 4 }}>
+          A seat on every phone. Needs the shared pool.
         </p>
       ) : !podId ? (
-        <p className="small faint" style={{ marginTop: 6 }}>
-          Join or create a pod on the You tab to share a table across phones.
+        <p className="small faint" style={{ marginTop: 4 }}>
+          Join a pod on the You tab to share a table across phones.
         </p>
       ) : open.length > 0 ? (
         <div className="stack" style={{ gap: 6, marginTop: 8 }}>
@@ -1047,8 +1098,8 @@ function PodModePicker({ startingLife, onSession }: { startingLife: number; onSe
           <p className="small faint">Or start your own with Pod session.</p>
         </div>
       ) : (
-        <p className="small faint" style={{ marginTop: 6 }}>
-          Pod session starts a table at {startingLife} life that everyone in {pool.pod?.name ?? 'the pod'} can join from this menu on their own phone.
+        <p className="small faint" style={{ marginTop: 4 }}>
+          A seat on every phone; the pod joins from this menu. Starts at {startingLife} life.
         </p>
       )}
     </div>
