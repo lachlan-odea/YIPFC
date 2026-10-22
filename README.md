@@ -182,7 +182,8 @@ the right way up.
   games, wins, win rate, average length, average life lost) and lists recent
   games. It is in the game menu, on the **You** tab, and behind **Records**
   on the Decks tab. An **All time** row at the top totals the whole record
-  (games, turns, life gained and lost, commander damage, eliminations), and a
+  (games, turns, time played, life gained and lost, commander damage,
+  eliminations), and a
   **Lifetime** view of the tables shows each commander's and player's running
   totals; the You tab also shows your own lifetime line.
 - **Elo.** Everyone starts at 1000. Each saved game is scored as a match
