@@ -84,8 +84,8 @@ export function parseCommanderPage(raw: unknown): CommanderPage | null {
 /** A card you own, as the recommender sees it. */
 export type OwnedCard = { name: string; type_line: string }
 
-/** Cards worth asking about: no lands, one entry per name, decks' cards first, capped. */
-export function pickCards(owned: OwnedCard[], cap = 80): string[] {
+/** Cards worth asking about: no lands, one entry per name, decks' cards first. `cap` is for tests. */
+export function pickCards(owned: OwnedCard[], cap = Infinity): string[] {
   const seen = new Set<string>()
   const out: string[] = []
   for (const c of owned) {

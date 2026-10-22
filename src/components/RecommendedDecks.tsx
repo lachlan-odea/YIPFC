@@ -173,7 +173,7 @@ export default function RecommendedDecks({ onOpen }: { onOpen: (deckId: string) 
           {!busy && ideas && (
             <div className="row between">
               <p className="small faint" style={{ margin: 0 }}>
-                From {pickCards(owned).length} of your cards. Card data from EDHREC, kept for a week.
+                From all {pickCards(owned).length} of your non-land cards. Card data from EDHREC, kept for a week.
               </p>
               <button
                 className="btn sm quiet"

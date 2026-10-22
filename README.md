@@ -219,16 +219,16 @@ clockwise order matches. Pod sessions need the shared pool.
 ### Recommended decks
 
 Under your decks, **Recommended decks** is collapsed until you ask. Show it
-and the app asks EDHREC which commanders each card you own (your spares and
-the cards in your decks, lands aside) is a signature card for, scores those
+and the app asks EDHREC which commanders each card you own (every spare and
+every card in your decks, lands aside) is a signature card for, scores those
 commanders, and for the strongest looks up how much of each one's usual list
 you already hold. Each idea shows the commander, how many of its recommended
 cards you have and which, a link to its EDHREC page, and **Start this deck**,
 which makes a new deck with the commander and every one of those cards in
 it. Format staples such as Sol Ring are ignored because they point at every
-deck. Commanders you already have a deck for are left out. The lookups are a
-few dozen small requests to EDHREC and are kept on the phone for a week, so
-showing the section again is instant; **Refresh** throws that away and
+deck. Commanders you already have a deck for are left out. The lookups are one
+small request to EDHREC per card (about 40 KB each) and are kept on the phone
+for a week, so showing the section again is instant; **Refresh** throws that away and
 fetches the latest, taking your current cards into account.
 
 ## Accounts and pods
